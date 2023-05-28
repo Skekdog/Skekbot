@@ -1,0 +1,5 @@
+/.vscode
+/chatfilter.py
+/commandIds.txt
+/__pycache__
+/src/__pycache__
