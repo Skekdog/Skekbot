@@ -203,7 +203,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                             files.append(discord.File(toJpeg(base64.b64decode(response[i]["b64_json"])),filename=f"{fn}_DALL-E-2_GENERATION{i}.jpg"))
                         if AI == AI_API.Image:
                             embed = discord.Embed(colour=discord.Colour.blue(),title=((f"\> {prompt}") if prompt[:240] == prompt else prompt[:240]+"..."))
-                            embed.add_field(name=f"This generation cost ${round(cost,4)}",value=f"You have ${round(remaining,4)} remaining. {creditRefresh()}")
+                            embed.add_field(name="This generation cost ${0:.4f}".format(cost),value="You have ${0:.4f} remaining. {1}".format(remaining,creditRefresh()))
                             await edit_response(content=f"\n\nGeneration completed! <@{id}>",embed=embed,files=files,view=VariationsView(attachments=files))
                         elif AI == AI_API.Variation:
                             embed = None
@@ -211,7 +211,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                                 embed = discord.Embed(colour=discord.Colour.blue(),title=(msg.embeds[0].title))
                             else:
                                 embed = discord.Embed(colour=discord.Colour.blue(),title=("\> Variations"))
-                            embed.add_field(name=f"This variation cost ${round(cost,4)}",value=f"You have ${round(remaining,4)} remaining. {creditRefresh()}")
+                            embed.add_field(name="This variation cost ${0:.4f}".format(cost),value="You have ${0:.4f} remaining. {1}".format(remaining,creditRefresh()))
                             await edit_response(content=f"\n\nVariation completed! <@{id}>",embed=embed,files=files,view=VariationsView(attachments=files))
                     elif AI == AI_API.Chat or AI == AI_API.Completion:
                         tokens = response.usage.total_tokens
@@ -223,7 +223,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                         cost,remaining = spendCredits(id,AI,tokens=int(tokens))
                         title = ((f"\> {prompt}") if prompt[:50] == prompt else prompt[:50]+"...")+" | "+str(personality)+" | "+botName+" | "+str(id)
                         embed = discord.Embed(colour=discord.Colour.blue(),title=title,description=f"```{response}```")
-                        embed.add_field(name=f"This generation cost ${round(cost,4)}",value=f"You have ${round(remaining,4)} remaining. {creditRefresh()}")
+                        embed.add_field(name="This generation cost ${0:.4f}".format(cost),value="You have ${0:.4f} remaining. {1}".format(remaining,creditRefresh()))
                         content = f"\n\nGeneration completed! <@{id}>"
                         if threaded:
                             content += "\nTo continue this conversation, send a message in the attached thread. Conversations have a maximum of 4097 tokens, or roughly 20k characters."
@@ -252,8 +252,8 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
             await edit_response(embed=openAIErrorEmbed)
     else:
         userDailyBudget = dailyBudget+float(readFromKey(up,id,"credits",default=0)[0])
-        remaining = round(userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)),4)
-        brokeEmbed.set_field_at(0,name=f"You have ${str(remaining)} remaining",value=creditRefresh())
+        remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget))
+        brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
         await edit_response(embed=brokeEmbed)
 
 async def _moderate(prompt):
@@ -520,25 +520,25 @@ async def creditsCMD(ctx:discord.Interaction):
     uId = ctx.user.id
     userDailyBudget = dailyBudget+float(readFromKey(up,uId,"credits",default=0)[0])
     userDailySynthesis = int(dailySynthesis+int(readFromKey(up,uId,"characters",default=0)[0]))
-    embed = discord.Embed(title="Credits",description=f"""
+    embed = discord.Embed(title="Credits",description="""
                 Credits are a system used to prevent me from being bankrupted.
                 AI commands cost credits, which are deducted from your account if the prompt is successful.
-                Images are generally more expensive. Variations cost $0.02 per image. Upscaling images does NOT cost credits, as upscaling uses a free API.
+                Images are generally more expensive. Variations cost $0.0200 per image. Upscaling images does NOT cost credits, as upscaling uses a free API.
                 
                 You can use credits with the </ask gpt:1095068823759093831>, </ask babbage:1095068823759093831> and </imagine:1084189053475373186> commands.
 
                 </speech_synthesis:1107238771595948043> has a daily character limit of 250.
                 Characters only apply to the </speech_synthesis:1107238771595948043> command.
 
-                Every midnight your credits and characters will be re-filled to ${str(userDailyBudget)} and {str(userDailySynthesis)} respectively, for free.
+                Every midnight your credits and characters will be re-filled to ${0:.4f} and {1} respectively, for free.
                 The daily amount of credits and characters you receive is subject to change.
                 If you give me money, I might increase your limits. *wink wink*
 
-                Note that displayed credit values are rounded to 4 decimal places, the actual value may be slightly different.""",
+                Note that displayed credit values are rounded to 4 decimal places, the actual value may be slightly different.""".format(userDailyBudget,userDailySynthesis),
                 colour=discord.Colour.blue())
     remainingBudget = round(userDailyBudget-float(readFromKey(ud,ctx.user.id,"credits",default=0)[0]),4)
     remainingSynthesis = int(userDailySynthesis-float(readFromKey(ud,ctx.user.id,"characters",default=0)[0]))
-    embed.add_field(name=f"You have ${str(remainingBudget)} credit remaining.",value=f"This will refill <t:{getRefreshTime()}:R>.")
+    embed.add_field(name="You have ${0:.4f} credit remaining.".format(remainingBudget),value=f"This will refill <t:{getRefreshTime()}:R>.")
     embed.add_field(name=f"You have {str(remainingSynthesis)} characters remaining.",value=f"This will refill <t:{getRefreshTime()}:R>.")
     await ctx.response.send_message(embed=embed)
 
