@@ -200,8 +200,10 @@ async def on_raw_reaction_add(payload:discord.RawReactionActionEvent):
                         overallResults += f"{str(i)}: {str(v)} votes\n"
                     await msg.edit(content=f"Poll concluded at <t:{round(time.time())}:F>!\nThe winning option was {winner} with {top} vote(s).\n{overallResults}")
 
-    reactRoles = readFromKey(rr,msgId,"data")[0].split("[]")
-    await reactionRoles(reactRoles,payload.event_type,react,user)
+    r = readFromKey(rr,msgId,"data")[0]
+    if r:
+        reactRoles = r.split("[]")
+        await reactionRoles(reactRoles,payload.event_type,react,user)
 
 @client.event
 async def on_raw_reaction_remove(payload:discord.RawReactionActionEvent):
