@@ -1,6 +1,7 @@
 import discord
 from discord.app_commands import *
 
+import chatfilters
 import skekcommands
 from skekcommands import *
 from skekcommands import _AICommands
@@ -43,7 +44,8 @@ cIDs = {
 }
 
 server1 = 920370076035739699
-isTest = False
+server2 = 1051204758842658916
+isTest = True
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -104,27 +106,26 @@ async def on_message(msg:discord.Message):
             md = chan.name.split(" | ")
             botName = md[2]
             personalityStr = md[1]
-            if auth.id != int(md[3]):
-                return
-            sysMsg = sysMsgs[AI_Personality[personalityStr]].format(auth.name,botName)
-            pastMsgs = [{"role":"system","content":sysMsg}]
-            msgs = [message async for message in chan.history(oldest_first=True)]
-            for pastMsg in msgs:
-                if pastMsg.author == client.user:
-                    if len(pastMsg.embeds) == 0 or not pastMsg.content:
-                        continue
-                    embed = pastMsg.embeds[0]
-                    if embed.colour != discord.Colour.blue():
-                        continue
-                    pastMsgs.append({"role":"assistant","content":embed.description[3:-3]})
-                elif pastMsg.author == auth:
-                    pastMsgs.append({"role":"user","content":pastMsg.content})
-            msg = await msg.reply("Processing... this may take a while.")
-            await _AICommands(None,cont,AI_API.Chat,
-                                           userId=auth.id,userName=auth.name,channel=chan,msg=msg,editFunc=msg.edit,
-                                           chatOverride=pastMsgs,
-                                           botName=botName,
-                                           personality=personalityStr)
+            if auth.id == int(md[3]):
+                sysMsg = sysMsgs[AI_Personality[personalityStr]].format(auth.name,botName)
+                pastMsgs = [{"role":"system","content":sysMsg}]
+                msgs = [message async for message in chan.history(oldest_first=True)]
+                for pastMsg in msgs:
+                    if pastMsg.author == client.user:
+                        if len(pastMsg.embeds) == 0 or not pastMsg.content:
+                            continue
+                        embed = pastMsg.embeds[0]
+                        if embed.colour != discord.Colour.blue():
+                            continue
+                        pastMsgs.append({"role":"assistant","content":embed.description[3:-3]})
+                    elif pastMsg.author == auth:
+                        pastMsgs.append({"role":"user","content":pastMsg.content})
+                msg = await msg.reply("Processing... this may take a while.")
+                await _AICommands(None,cont,AI_API.Chat,
+                                            userId=auth.id,userName=auth.name,channel=chan,msg=msg,editFunc=msg.edit,
+                                            chatOverride=pastMsgs,
+                                            botName=botName,
+                                            personality=personalityStr)
 
     if auth.id == 658762325993717802:
         await msg.reply(content="Shut up nobody cares",mention_author=False)
