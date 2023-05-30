@@ -70,6 +70,7 @@ def readFromKey(database:str,key:str,columns:str="*",default=None) -> tuple[Any]
 
     if type(columns) is not str:
         raise TypeError(f"Expected str for columns, got {type(columns)}")
+    global dbCur
     default = (default,)
     key=str(key)
     key = "'"+key+"'"
@@ -118,6 +119,7 @@ def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
     key=str(key)
     key = "'"+key+"'"
     values = SQLDict(values)
+    global dbCur
 
     try:
         dbCur.execute(f"SELECT * FROM {database} WHERE id = {key}")
@@ -144,6 +146,7 @@ def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
 def deleteKey(database:str,key:str) -> None:
     "Deletes a key from a database."
     key = str(key)
+    global dbCur
     try:
         dbCur.execute(f"DELETE FROM {database} WHERE id = {key}")
     except sql.errors.DatabaseError as err:
@@ -210,4 +213,4 @@ def toPng(file:bytes) -> io.BytesIO:
     return b
 
 if __name__ == "__main__":
-    dbCur.execute("ALTER TABLE polls MODIFY COLUMN pollCreator BIGINT")
+    readFromKey("userdata",534828861586800676)
