@@ -45,7 +45,7 @@ cIDs = {
 
 server1 = 920370076035739699
 server2 = 1051204758842658916
-isTest = True
+isTest = (os.environ.get("ISHOSTED") is not None)
 
 intents = discord.Intents.default()
 intents.message_content = True
