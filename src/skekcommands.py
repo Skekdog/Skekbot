@@ -252,7 +252,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
             await edit_response(embed=openAIErrorEmbed)
     else:
         userDailyBudget = dailyBudget+float(readFromKey(up,id,"credits",default=0)[0])
-        remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget))
+        remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)[0])
         brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
         await edit_response(embed=brokeEmbed)
 
