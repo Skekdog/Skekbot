@@ -73,26 +73,42 @@ def readFromKey(database:str,key:str,columns:str="*",default=None) -> tuple[Any]
     default = (default,)
     key=str(key)
     key = "'"+key+"'"
+
     try:
-        dbCur.execute(f"SELECT * FROM {database} WHERE id = 'lastrefresh'")
-        values = dbCur.fetchone()
-        last = values[1]
-        period = values[2]
-        curTime = time.time()
-        newPeriod = curTime-(curTime%period)
-        if curTime >= ((last+(period-(last%period))%period) + period):
-            #// It's low noon
-            dbCur.execute(f"TRUNCATE {database}")
-            dbCur.execute(f"INSERT INTO {database} (id,credits,characters) VALUES ('lastrefresh',{newPeriod},{period})")
-            return default
-    except sql.errors.ProgrammingError:
-        pass
-    except TypeError:
-        pass
-    dbCur.execute(f"SELECT {columns} FROM {database} WHERE id = {key}")
-    val = dbCur.fetchone()
-    if val is None: return default
-    return val if (len(val) > 0 and any(val)) else default
+        try:
+            dbCur.execute(f"SELECT * FROM {database} WHERE id = 'lastrefresh'")
+            values = dbCur.fetchone()
+            last = values[1]
+            period = values[2]
+            curTime = time.time()
+            newPeriod = curTime-(curTime%period)
+            if curTime >= ((last+(period-(last%period))%period) + period):
+                #// It's low noon
+                dbCur.execute(f"TRUNCATE {database}")
+                dbCur.execute(f"INSERT INTO {database} (id,credits,characters) VALUES ('lastrefresh',{newPeriod},{period})")
+                return default
+        except sql.errors.ProgrammingError:
+            pass
+        except TypeError:
+            pass
+        dbCur.execute(f"SELECT {columns} FROM {database} WHERE id = {key}")
+        val = dbCur.fetchone()
+        if val is None: return default
+        return val if (len(val) > 0 and any(val)) else default
+    except sql.errors.DatabaseError as err:
+        print(err)
+        print("Reconnecting...")
+        db = sql.connect(
+            host=os.environ.get("MYSQLHOST"),
+            user=os.environ.get("MYSQLUSER"),
+            password=os.environ.get("MYSQLPASSWORD"),
+            database=os.environ.get("MYSQLDATABASE"),
+            port=os.environ.get("MYSQLPORT"),
+        )
+        print("Reconnected to database!")
+        db.autocommit = True
+        dbCur = db.cursor()
+        return readFromKey(database,key,columns=columns,default=default)
     
 def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
     "Replaces the values at columns of key in database with values. If the key does not exist, it is added."
@@ -102,17 +118,48 @@ def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
     key=str(key)
     key = "'"+key+"'"
     values = SQLDict(values)
-    dbCur.execute(f"SELECT * FROM {database} WHERE id = {key}")
-    if dbCur.fetchone() is not None:
-        dbCur.execute(f"UPDATE {database} SET {str(values)} WHERE id = {key}")
-    else:
-        dbCur.execute(f"INSERT INTO {database} (id,{values.keys()}) VALUES ({key},{encloseVals}{values.values()}{encloseVals})")
+
+    try:
+        dbCur.execute(f"SELECT * FROM {database} WHERE id = {key}")
+        if dbCur.fetchone() is not None:
+            dbCur.execute(f"UPDATE {database} SET {str(values)} WHERE id = {key}")
+        else:
+            dbCur.execute(f"INSERT INTO {database} (id,{values.keys()}) VALUES ({key},{encloseVals}{values.values()}{encloseVals})")
+    except sql.errors.DatabaseError as err:
+        print(err)
+        print("Reconnecting...")
+        db = sql.connect(
+            host=os.environ.get("MYSQLHOST"),
+            user=os.environ.get("MYSQLUSER"),
+            password=os.environ.get("MYSQLPASSWORD"),
+            database=os.environ.get("MYSQLDATABASE"),
+            port=os.environ.get("MYSQLPORT"),
+        )
+        print("Reconnected to database!")
+        db.autocommit = True
+        dbCur = db.cursor()
+        return writeToKey(database,key,values,encloseVals=encloseVals)
 
     
 def deleteKey(database:str,key:str) -> None:
     "Deletes a key from a database."
     key = str(key)
-    dbCur.execute(f"DELETE FROM {database} WHERE id = {key}")
+    try:
+        dbCur.execute(f"DELETE FROM {database} WHERE id = {key}")
+    except sql.errors.DatabaseError as err:
+        print(err)
+        print("Reconnecting...")
+        db = sql.connect(
+            host=os.environ.get("MYSQLHOST"),
+            user=os.environ.get("MYSQLUSER"),
+            password=os.environ.get("MYSQLPASSWORD"),
+            database=os.environ.get("MYSQLDATABASE"),
+            port=os.environ.get("MYSQLPORT"),
+        )
+        print("Reconnected to database!")
+        db.autocommit = True
+        dbCur = db.cursor()
+        deleteKey(database,key)
 
 def spendCredits(userID:int,model:AI_API,tokens=0,resolution="256x256",amount=1) -> tuple[float,float]:
     "Calculate costs and deduct credits from the user. Returns calculated value and remaining out of daily budget."
