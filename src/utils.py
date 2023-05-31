@@ -109,16 +109,17 @@ def readFromKey(database:str,key:str,columns:str="*",default=None) -> tuple[Any]
         print("Reconnected to database!")
         db.autocommit = True
         dbCur = db.cursor()
-        return readFromKey(database,key,columns=columns,default=default)
+        return readFromKey(database,key[1:-1],columns=columns,default=default[0])
     
 def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
     "Replaces the values at columns of key in database with values. If the key does not exist, it is added."
-    if type(values) is not dict:
-        raise TypeError(f"Expected dict for columns, got {type(values)}")
+    if not isinstance(values,dict):
+        raise TypeError(f"Expected dict for values, got {type(values)}")
     
     key=str(key)
     key = "'"+key+"'"
-    values = SQLDict(values)
+    if type(values) is not SQLDict:
+        values = SQLDict(values)
     global dbCur
 
     try:
@@ -140,7 +141,7 @@ def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
         print("Reconnected to database!")
         db.autocommit = True
         dbCur = db.cursor()
-        return writeToKey(database,key,values,encloseVals=encloseVals)
+        return writeToKey(database,key[1:-1],values,encloseVals=encloseVals)
 
     
 def deleteKey(database:str,key:str) -> None:
@@ -182,6 +183,7 @@ def spendCredits(userID:int,model:AI_API,tokens=0,resolution="256x256",amount=1)
 def checkCredits(userID:int,model:AI_API,resolution=Resolution.Low,amount=1) -> bool|int:
     "Returns bool for images. Returns amount of tokens that can be used with a chat model, or False if none."
 
+    print(readFromKey(up,userID,"credits",default=0)[0])
     userDailyBudget = dailyBudget+float(readFromKey(up,userID,"credits",default=0)[0])
     spends = float(readFromKey(ud,userID,"credits",default=0)[0])
 
