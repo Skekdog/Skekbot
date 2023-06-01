@@ -73,21 +73,21 @@ async def on_app_command_error(ctx:Interaction,err:AppCommandError):
     print(err)
     match err.__class__.__name__:
         case "CommandOnCooldown":
-            await ctx.response.send_message(f"You must wait {str(round(err.retry_after,2))}s before using this command again.")
+            await ctx.response.send_message(f"You must wait {str(round(err.retry_after,2))}s before using this command again.",ephemeral=True)
         case "TransformerError":
-            await ctx.response.send_message(f"Failed to convert {err.value} to {str(err.type)}")
+            await ctx.response.send_message(f"Failed to convert {err.value} to {str(err.type)}",ephemeral=True)
         case "NoPrivateMessage":
             await ctx.response.send_message(f"You may not run this command in a DM.")
         case "MissingRole":
-            await ctx.response.send_message(f"You are missing the {err.missing_role} role to use this command.")
+            await ctx.response.send_message(f"You are missing the {err.missing_role} role to use this command.",ephemeral=True)
         case "MissingAnyRole":
-            await ctx.response.send_message(f"You are missing one or more of the required roles to use this command: {str(err.missing_roles)}")
+            await ctx.response.send_message(f"You are missing one or more of the required roles to use this command: {str(err.missing_roles)}",ephemeral=True)
         case "MissingPermissions":
-            await ctx.response.send_message(f"You are missing the required permissions to use this command. ({str(err.missing_permissions)})")
+            await ctx.response.send_message(f"You are missing the required permissions to use this command. ({str(err.missing_permissions)})",ephemeral=True)
         case "BotMissingPermissions":
-            await ctx.response.send_message(f"Skekbot does not have the required permissions ({str(err.missing_permissions)}) to execute this command, please contact the server owner.")
+            await ctx.response.send_message(f"Skekbot does not have the required permissions ({str(err.missing_permissions)}) to execute this command, please contact the server owner.",ephemeral=True)
         case _:
-            await ctx.response.send_message(f"An unknown error occcured when executing this command. Try again later.")
+            await ctx.response.send_message(f"An unknown error occcured when executing this command. Try again later.",ephemeral=True)
 
 @client.event
 async def on_ready():
