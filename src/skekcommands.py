@@ -3,6 +3,9 @@ import discord
 from discord.interactions import Interaction
 from discord.ui import *
 
+from datetime import datetime
+# from characterai import pyAsyncCAI as CAI
+
 from skekenums import *
 from utils import *
 
@@ -10,15 +13,16 @@ import asyncio
 import io,base64,os,requests
 import random,time,uuid,emoji
 
-import openai
-import elevenlabs
+import openai,elevenlabs
+
 elevenlabs.set_api_key(os.environ.get("TOKEN_ELEVENLABS"))
 openai.api_key = os.environ.get("TOKEN_OPENAI")
 deepLToken = os.environ.get("TOKEN_DEEPL")
 
-from datetime import datetime
+# t = os.environ.get("TOKEN_CHARACTERAI")
+# CAIClient = CAI(t)
 
-dailyBudget = 2
+dailyBudget = 0.04
 dailySynthesis = 250
 
 deepLLanguageCodes = {
@@ -75,6 +79,8 @@ p = "polls"
 h = "../data/help.txt"
 l = "../data/lucky.txt"
 
+pendingCharges = {}
+
 
 genF = "Generation failed."
 varF = "Variation failed."
@@ -98,7 +104,10 @@ openAIErrorEmbed.add_field(name=noCharge,value="")
 otherErrorEmbed = discord.Embed(colour=discord.Colour.red(),title=genF)
 otherErrorEmbed.add_field(name="This attempt cost $0.0000.",value="You have $0.0000 remaining.")
 
-##Todo: rewrite Frankenstein's monster
+# CAIClientStarted = False
+
+# // Todo: rewrite Frankenstein's monster
+# // Each passing day this becomes more disgusting
 async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                       resolution:Resolution=None,amount:int=None,variations_image=None,self=None,
                       temp=0.7,presence=0,frequency=0,
@@ -106,23 +115,36 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                       threaded=False,userId=None,channel:discord.TextChannel=None,userName=None,msg:discord.Message=None,editFunc:callable=None) -> None:
     "Run default checks and operations before running an OpenAI command."
 
+    # global CAIClientStarted
+    # if not CAIClientStarted:
+    #     await CAIClient.start()
+    #     CAIClientStarted = True
+
     msg = msg if msg is not None else ctx.message
     userName = userName if userName else ctx.user.name
     id = userId if userId else ctx.user.id
     edit_response = editFunc if editFunc else channel.send if channel else ctx.followup.send
-    rCredits = checkCredits(id,AI,resolution=resolution,amount=amount)
+    rCredits,remCredits = checkCredits(id,AI,resolution=resolution,amount=amount)
+    userDailyBudget = dailyBudget+float(readFromKey(up,id,"credits",default=0)[0])
     if rCredits or AI == AI_API.Lucky or AI == AI_API.CharacterAI:
+
+        prelimCost = getCost(AI,384,resolution,amount)
+        try:
+            pendingCharges[id] += prelimCost
+        except KeyError:
+            pendingCharges[id] = prelimCost
+        if (userDailyBudget - pendingCharges[id] + prelimCost) <= 0:
+            remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)[0])
+            print(userDailyBudget - pendingCharges[id] + prelimCost)
+            pendingCharges[id] -= prelimCost
+            brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
+            await edit_response(embed=brokeEmbed)
+            return
         mod,flags = None,None
-        if AI == AI_API.Lucky or AI == AI_API.CharacterAI:
-            if prompt:
-                mod,flags = await _moderate(prompt)
-            else:
-                mod,flags = True,[]
+        if prompt:
+            mod,flags = await _moderate(prompt)
         else:
-            if prompt:
-                mod,flags = await _moderate(prompt)
-            else:
-                mod,flags = True,[]
+            mod,flags = True,[]
         if mod == True:
             botName = botName if botName else random.choice(names)
             response = None
@@ -165,21 +187,20 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                             model="text-babbage-001",
                             prompt=prompt,
                             temperature=temp,
-                            max_tokens=min(rCredits,384),
+                            max_tokens=int(min(rCredits,384)),
                             top_p=1,
                             frequency_penalty=frequency,
                             presence_penalty=presence,
                             user=str(id)
                         )
                     case AI_API.Lucky:
-                        urlPrompt = prompt.replace(" ","%20")
-                        ## This is awful
-                        process = await asyncio.create_subprocess_shell(f"chdir C:/Users/Admin/Documents/node_characterai && node . {urlPrompt}",stdout=asyncio.subprocess.PIPE)
-                        response = (await process.communicate())[0].decode()
+                        otherErrorEmbed.description = "CharacterAI commands are currently unavailable. Check back later."
+                        await edit_response(embed=otherErrorEmbed)
+                        return
                     case AI_API.CharacterAI:
-                        urlPrompt = prompt.replace(" ","%20")
-                        process = await asyncio.create_subprocess_shell(f"chdir C:/Users/Admin/Documents/node_characterai && node . {urlPrompt} {character_id}",stdout=asyncio.subprocess.PIPE)
-                        response = (await process.communicate())[0].decode()[:4000]
+                        otherErrorEmbed.description = "CharacterAI commands are currently unavailable. Check back later."
+                        await edit_response(embed=otherErrorEmbed)
+                        return
                     case _:
                         raise ValueError(f"Unknown API: {AI_API}")
             except ValueError as err:
@@ -196,6 +217,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                 if response:
                     if AI == AI_API.Image or AI == AI_API.Variation:
                         cost,remaining = spendCredits(id,AI,resolution=resolution,amount=amount)
+                        pendingCharges[id] -= prelimCost
                         response = response["data"]
                         files = []
                         fn = prompt if prompt else img.filename[:-25]
@@ -221,6 +243,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                             response = response.choices[0].text
                         response = response.replace("`","`​")
                         cost,remaining = spendCredits(id,AI,tokens=int(tokens))
+                        pendingCharges[id] -= prelimCost
                         title = ((f"\> {prompt}") if prompt[:50] == prompt else prompt[:50]+"...")+" | "+str(personality)+" | "+botName+" | "+str(id)
                         embed = discord.Embed(colour=discord.Colour.blue(),title=title,description=f"```{response}```")
                         embed.add_field(name="This generation cost ${0:.4f}".format(cost),value="You have ${0:.4f} remaining. {1}".format(remaining,creditRefresh()))
@@ -251,7 +274,6 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
             openAIErrorEmbed.description = "APIError, OpenAI is likely down at the moment. Try again later."
             await edit_response(embed=openAIErrorEmbed)
     else:
-        userDailyBudget = dailyBudget+float(readFromKey(up,id,"credits",default=0)[0])
         remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)[0])
         brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
         await edit_response(embed=brokeEmbed)

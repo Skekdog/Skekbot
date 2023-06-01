@@ -23,7 +23,7 @@ print("Connected to database!")
 db.autocommit = True
 dbCur = db.cursor()
 
-dailyBudget = 2
+dailyBudget = 0.04
 prices = {
     Resolution.Low:0.016,
     Resolution.Med:0.018,
@@ -31,9 +31,6 @@ prices = {
 
     AI_API.Chat:0.002,
     AI_API.Completion:0.0005,
-    ## If I ever decide to use GPT4
-    ## AI_API.GPT4:0.03,
-    ## AI_API.GPT4PLUS:0.06,
 }
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -95,7 +92,7 @@ def readFromKey(database:str,key:str,columns:str="*",default=None) -> tuple[Any]
         dbCur.execute(f"SELECT {columns} FROM {database} WHERE id = {key}")
         val = dbCur.fetchone()
         if val is None: return default
-        return val if (len(val) > 0 and any(val)) else default
+        return val if (len(val) > 0 and (any(val) or val[0] == 0)) else default
     except sql.errors.DatabaseError as err:
         print(err)
         print("Reconnecting...")
@@ -165,16 +162,16 @@ def deleteKey(database:str,key:str) -> None:
         dbCur = db.cursor()
         deleteKey(database,key)
 
+def getCost(model:AI_API,tokens=0,resolution="256x256",amount=1) -> float:
+    "Calculates cost of using an OpenAI command."
+    return prices[resolution]*amount if model == AI_API.Image or model == AI_API.Variation else prices[model]*tokens/1000
+
 def spendCredits(userID:int,model:AI_API,tokens=0,resolution="256x256",amount=1) -> tuple[float,float]:
-    "Calculate costs and deduct credits from the user. Returns calculated value and remaining out of daily budget."
+    "Deducts calculated credits from the user. Returns calculated value and remaining out of daily budget."
 
     userDailyBudget = dailyBudget+float(readFromKey(up,userID,"credits",default=0)[0])
     currentSpend = float(readFromKey(ud,userID,"credits",default=0)[0])
-    cost:float
-    if model in [AI_API.Image,AI_API.Variation]:
-        cost = prices[resolution]*amount
-    elif model in [AI_API.Chat,AI_API.Completion]:
-        cost = prices[model]*tokens/1000
+    cost = getCost(model,tokens,resolution,amount)
 
     writeToKey(ud,userID,{"credits":cost+currentSpend})
     remaining = userDailyBudget-cost-currentSpend
@@ -182,15 +179,14 @@ def spendCredits(userID:int,model:AI_API,tokens=0,resolution="256x256",amount=1)
 
 def checkCredits(userID:int,model:AI_API,resolution=Resolution.Low,amount=1) -> bool|int:
     "Returns bool for images. Returns amount of tokens that can be used with a chat model, or False if none."
-
-    print(readFromKey(up,userID,"credits",default=0)[0])
+    
     userDailyBudget = dailyBudget+float(readFromKey(up,userID,"credits",default=0)[0])
     spends = float(readFromKey(ud,userID,"credits",default=0)[0])
 
     if model in [AI_API.Image,AI_API.Variation]:
-        return userDailyBudget - spends >= (prices[resolution]*amount)
+        return ((userDailyBudget - spends >= (prices[resolution]*amount)),(userDailyBudget - spends))
     elif model in [AI_API.Chat,AI_API.Completion]:
-        return (userDailyBudget - spends)*1000/prices[model] if (userDailyBudget - spends)*1000/prices[model] > 0 else False
+        return (((userDailyBudget - spends)*1000/prices[model]),(userDailyBudget - spends)) if ((userDailyBudget - spends)*1000/prices[model] > 0) else (False,(userDailyBudget - spends))
     
 
 def toJpeg(file:bytes) -> io.BytesIO:

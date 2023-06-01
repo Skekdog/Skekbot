@@ -56,7 +56,6 @@ intents.invites = False
 intents.typing = False
 
 client = discord.Client(intents=intents)
-
 tree = CommandTree(client)
 
 @client.event
