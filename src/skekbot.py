@@ -1,7 +1,17 @@
 import discord
-from discord.app_commands import *
+from discord.app_commands.errors import *
+from discord.app_commands.checks import cooldown
+from discord.app_commands import command
+from discord.app_commands import describe
+from discord.app_commands import choices
+from discord.app_commands import Choice
+from discord.app_commands import Range
+from discord.app_commands import Group
+from discord import ChannelType
+from discord import Interaction
+from discord import Message
+from discord import Object
 
-import chatfilters
 import skekcommands
 from skekcommands import *
 from skekcommands import _AICommands
@@ -56,19 +66,40 @@ intents.invites = False
 intents.typing = False
 
 client = discord.Client(intents=intents)
-tree = CommandTree(client)
+tree = discord.app_commands.CommandTree(client)
+
+@tree.error
+async def on_app_command_error(ctx:Interaction,err:AppCommandError):
+    print(err)
+    match err.__class__.__name__:
+        case "CommandOnCooldown":
+            await ctx.response.send_message(f"You must wait {str(round(err.retry_after,2))}s before using this command again.")
+        case "TransformerError":
+            await ctx.response.send_message(f"Failed to convert {err.value} to {str(err.type)}")
+        case "NoPrivateMessage":
+            await ctx.response.send_message(f"You may not run this command in a DM.")
+        case "MissingRole":
+            await ctx.response.send_message(f"You are missing the {err.missing_role} role to use this command.")
+        case "MissingAnyRole":
+            await ctx.response.send_message(f"You are missing one or more of the required roles to use this command: {str(err.missing_roles)}")
+        case "MissingPermissions":
+            await ctx.response.send_message(f"You are missing the required permissions to use this command. ({str(err.missing_permissions)})")
+        case "BotMissingPermissions":
+            await ctx.response.send_message(f"Skekbot does not have the required permissions ({str(err.missing_permissions)}) to execute this command, please contact the server owner.")
+        case _:
+            await ctx.response.send_message(f"An unknown error occcured when executing this command. Try again later.")
 
 @client.event
 async def on_ready():
     await tree.sync()
     if not isTest:
-        await tree.sync(guild=discord.Object(920370076035739699))
-        await tree.sync(guild=discord.Object(933989654204649482))
+        await tree.sync(guild=Object(server1))
+        await tree.sync(guild=Object(933989654204649482))
     print("Readied!")
 
 
 @client.event
-async def on_message(msg:discord.Message):
+async def on_message(msg:Message):
     auth = msg.author
     if auth == client.user or auth.id == 1111975854839435376 or auth.id == 1054474727642628136:
         return
@@ -100,7 +131,7 @@ async def on_message(msg:discord.Message):
         elif con.find("doors")>-1:
             await msg.reply(content="Not now",mention_author=False)
 
-    if chan.type == discord.ChannelType.public_thread:
+    if chan.type == ChannelType.public_thread:
         if chan.name.find(" | ") > -1:
             md = chan.name.split(" | ")
             botName = md[2]
@@ -136,7 +167,7 @@ async def reactionRoles(reactRoles,event_type,reaction,user):
             vals = i[1:-1].split(",")
             em,roleId = emoji.emojize(vals[0]),vals[1]
             if em == reaction.emoji:
-                rolesToAssign.append(discord.Object(roleId))
+                rolesToAssign.append(Object(roleId))
                 break
         if len(rolesToAssign) > 0:
             if event_type == "REACTION_ADD":
@@ -227,6 +258,7 @@ async def on_raw_reaction_remove(payload:discord.RawReactionActionEvent):
 
 
 @tree.command(name="imagine",description="Generate images using DALL-E 2.")
+@cooldown(rate=1,per=10)
 @describe(prompt="Prompt to provide to DALL-E 2.",amount="Amount of images to generate. Cost of each image depends on resolution. If generating in 1024x1024 resolution, there is a max amount of 2 images due to Discord limitations.",resolution="Resolution of each image. 256x256 costs $0.016 per image, 512x512: $0.018, 1024x1024: $0.02.")
 @choices(resolution=[Choice(name="1024x1024",value="1024x1024"),Choice(name="512x512",value="512x512"),Choice(name="256x256",value="256x256")],
          amount=[Choice(name="1",value=1),Choice(name="2",value=2),Choice(name="3",value=3),Choice(name="4",value=4)])
@@ -236,8 +268,9 @@ async def imagine(ctx,prompt:str,amount:int=1,resolution:str="256x256"):
 
 
 @tree.command(name="variations",description="Generate variations of an uploaded image using DALL-E 2. Variations are 1024x1024.")
+@cooldown(rate=1,per=10)
 @choices(amount=[Choice(name="1",value=1),Choice(name="2",value=2),Choice(name="3",value=3),Choice(name="4",value=4)])
-async def variations(ctx:discord.Interaction,image:discord.Attachment,amount:int=1):
+async def variations(ctx:Interaction,image:discord.Attachment,amount:int=1):
     await ctx.response.defer(thinking=True)
     await _AICommands(ctx,None,AI_API.Variation,resolution=Resolution.High,amount=amount,variations_image=image)
 
@@ -252,14 +285,16 @@ async def lucky(ctx):
     await luckyCMD(ctx)
 
 
-@tree.command(name="ask_lucky",description="Ask Lucky AI. Does not cost credits.",guilds=[discord.Object(920370076035739699),discord.Object(933989654204649482)])
+@tree.command(name="ask_lucky",description="Ask Lucky AI. Does not cost credits.",guilds=[Object(server1)])
+@cooldown(rate=1,per=1)
 @describe(prompt="Prompt to provide Lucky.")
-async def ask_lucky(ctx:discord.Interaction,prompt:str):
+async def ask_lucky(ctx:Interaction,prompt:str):
     await ctx.response.defer(thinking=True)
     await askCMD(ctx,prompt,AI_API.Lucky)
 
 
 @tree.command(name="speech_synthesis",description="Use ElevenLabs to synthesise speech. Max of 250 characters per day.")
+@cooldown(rate=1,per=15)
 @describe(prompt="Prompt to synthesise speech out of.",model="Voice model to use.",multilingual="Use the multilingual model.")
 @choices(
     model=[
@@ -274,7 +309,7 @@ async def ask_lucky(ctx:discord.Interaction,prompt:str):
         Choice(name="Rachel",value="Rachel")
     ]
 )
-async def speech_synthesis(ctx:discord.Interaction,prompt:str,model:str,multilingual:bool=False):
+async def speech_synthesis(ctx:Interaction,prompt:str,model:str,multilingual:bool=False):
     await ctx.response.defer(thinking=True)
     await synthesisCMD(ctx,prompt,model,multilingual)
 
@@ -283,28 +318,32 @@ async def coin_flip(ctx):
     await coin_flipCMD(ctx)
 
 @tree.command(name="translate",description="Translate things. Due to a discord limitation, languages need to be split into 2 lists.")
+@cooldown(rate=1,per=1)
 @choices(new_language=[Choice(name=v[1],value=v[0]) for i,v in enumerate(deepLLanguageCodes.items()) if i < 25],
          new_language_2=[Choice(name=v[1],value=v[0]) for i,v in enumerate(deepLLanguageCodes.items()) if i >= 25])
 @describe(suffocating_letters="The text to translate.",new_language="The language to translate the suffocating letters into.",new_language_2="The language to translate into, if it is not available in the first option.")
-async def translate(ctx:discord.Interaction,suffocating_letters:Range[str,1,900],new_language:str,new_language_2:str=None):
+async def translate(ctx:Interaction,suffocating_letters:Range[str,1,900],new_language:str,new_language_2:str=None):
     await ctx.response.defer(thinking=True)
     await translateCMD(ctx,suffocating_letters,target_lang=new_language_2 if new_language_2 else new_language)
 
 @tree.context_menu(name="Reaction Roles")
-async def reaction_roles(ctx:discord.Interaction,msg:discord.Message):
+@cooldown(rate=1,per=0.1)
+async def reaction_roles(ctx:Interaction,msg:Message):
     if ctx.user.guild_permissions.manage_roles:
         await reaction_rolesCMD(ctx,msg)
         return
     await ctx.response.send_message("You require the `manage_roles` permission to use this command.",ephemeral=True)
 
 @tree.context_menu(name="Translate to English")
-async def translate(ctx:discord.Interaction,msg:discord.Message):
+@cooldown(rate=1,per=1)
+async def translate(ctx:Interaction,msg:Message):
     await ctx.response.defer(thinking=True)
     await translateCMD(ctx,msg.content)
 
 
 class Converse(Group):
     @command(name="gpt",description="Ask OpenAI's ChatGPT Chat model. Good all round, but more expensive.")
+    @cooldown(rate=1,per=30)
     @describe(prompt="Prompt to provide the AI.",personality="The personality of the AI.",
               temperature="How deterministic the response will be.",presence_penalty="Penalty to apply to the AI for not starting new topics.",
               frequency_penalty="Penalty to apply to the AI for repeating the same words.")
@@ -318,8 +357,8 @@ class Converse(Group):
                           Choice(name="Sentient",value="Sentient"),
                           Choice(name="Philosophical",value="Philosophical"),
                           Choice(name="Military",value="Military"),])
-    async def converse_gpt(self,ctx:discord.Interaction,prompt:str,personality:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
-        if ctx.channel.type == discord.ChannelType.public_thread:
+    async def converse_gpt(self,ctx:Interaction,prompt:str,personality:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
+        if ctx.channel.type == ChannelType.public_thread:
             await ctx.response.send_message("You may not use this command in a thread.",ephemeral=True)
             return
         await ctx.response.defer(thinking=True)
@@ -329,6 +368,7 @@ tree.add_command(Converse())
 class Ask(Group):
     
     @command(name="gpt",description="Ask OpenAI's ChatGPT Chat model. Good all round, but more expensive.")
+    @cooldown(rate=1,per=3)
     @describe(prompt="Prompt to provide the AI.",personality="The personality of the AI.",
               temperature="How deterministic the response will be.",presence_penalty="Penalty to apply to the AI for not starting new topics.",
               frequency_penalty="Penalty to apply to the AI for repeating the same words.")
@@ -351,6 +391,7 @@ class Ask(Group):
 
     
     @command(name="babbage",description="Ask OpenAI's Babbage Completion model. Good at completing sentences or patterns, cheaper.")
+    @cooldown(rate=1,per=3)
     @describe(prompt="Prompt to provide the AI.",temperature="How deterministic the response will be.",
               presence_penalty="Penalty to apply to the AI for not starting new topics.",frequency_penalty="Penalty to apply to the AI for repeating the same words.")
     async def ask_babbage(self,ctx,prompt:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
@@ -359,6 +400,7 @@ class Ask(Group):
 
     
     @command(name="character_ai",description="Ask a character on CharacterAI. Does not cost credits.")
+    @cooldown(rate=1,per=1)
     @describe(prompt="Prompt to provide the AI.",character_id="ID of the character you want to ask. This is found in the url of a character: chat?char=ID.")
     async def ask_character_ai(self,ctx,prompt:str,character_id:str):
         await ctx.response.defer(thinking=True)
@@ -370,6 +412,7 @@ class Ask(Group):
     cAIGroup = Group(name="character_ai_",description="Ask a character on CharacterAI. Does not cost credits.")
     @cAIGroup.command(name="preset",description="Ask a preset character.")
     @describe(prompt="Prompt to provide the AI.",character="Character preset to use.")
+    @cooldown(rate=1,per=1)
     @choices(character=[Choice(name=i[0],value=i[1]) for i in cIDs.items()])
     async def ask_character_ai_presets(self,ctx,prompt:str,character:str):
         await ctx.response.defer(thinking=True)
@@ -382,17 +425,19 @@ tree.add_command(Ask())
 class Poll(Group):
     
     @command(name="create",description="Create a poll.")
+    @cooldown(rate=1,per=10)
     @describe(question="Question to poll on.",options="A list of options to vote on, separated by semicolons (;). Example: `Fish;Horse`",expirymode="Under what condition should the poll finish?",expiryvalue="Value for when the poll should conclude. Either an amount of minutes from now, or an amount of total reactions.")
     @choices(expirymode=[Choice(name="upon reaching X total reactions",value="reactions")])
     #@choices(expirymode=[Choice(name="after X minutes",value="time"),Choice(name="upon reaching X total reactions",value="reactions")])
     
-    async def poll_create(self,ctx:discord.Interaction,question:str,options:str,expirymode:str,expiryvalue:int):
+    async def poll_create(self,ctx:Interaction,question:str,options:str,expirymode:str,expiryvalue:int):
         await pollCMD(ctx,"create",question,options,expirymode,expiryvalue)
 tree.add_command(Poll())
 
 
 
 @tree.command(name="help",description="Learn more about Skekbot commands here.")
+@cooldown(rate=1,per=3)
 @describe(command="Command to provide information on.")
 @choices(command=[Choice(name=name[:-3],value=name[:-3]) for name,i in skekcommands.__dict__.items() if inspect.iscoroutinefunction(i) and callable and i.__name__[0] != "_"])
 async def help(ctx,command:str|None):

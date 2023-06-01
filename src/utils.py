@@ -209,6 +209,3 @@ def toPng(file:bytes) -> io.BytesIO:
     image.save(b,"PNG")
     b.seek(0)
     return b
-
-if __name__ == "__main__":
-    readFromKey("userdata",534828861586800676)
