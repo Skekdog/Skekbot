@@ -139,7 +139,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
             pendingCharges[id] -= prelimCost
             brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
             try:
-                await edit_response(embed=brokeEmbed,ephemeral=True)
+                await edit_response(embed=brokeEmbed,ephemeral=False)
             except TypeError:
                 await edit_response(embed=brokeEmbed)
             return
@@ -198,23 +198,23 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                         )
                     case AI_API.Lucky:
                         otherErrorEmbed.description = "CharacterAI commands are currently unavailable. Check back later."
-                        await edit_response(embed=otherErrorEmbed,ephemeral=True)
+                        await edit_response(embed=otherErrorEmbed,ephemeral=False)
                         return
                     case AI_API.CharacterAI:
                         otherErrorEmbed.description = "CharacterAI commands are currently unavailable. Check back later."
-                        await edit_response(embed=otherErrorEmbed,ephemeral=True)
+                        await edit_response(embed=otherErrorEmbed,ephemeral=False)
                         return
                     case _:
                         raise ValueError(f"Unknown API: {AI_API}")
             except ValueError as err:
                 otherErrorEmbed.description = str(err)[:800]
-                await edit_response(embed=otherErrorEmbed,ephemeral=True)
+                await edit_response(embed=otherErrorEmbed,ephemeral=False)
             except openai.error.APIError as err:
                 openAIErrorEmbed.description = f"APIError, OpenAI is likely down at the moment. Try again later. "
-                await edit_response(embed=openAIErrorEmbed,ephemeral=True)
+                await edit_response(embed=openAIErrorEmbed,ephemeral=False)
             except openai.error.OpenAIError as err:
                 openAIErrorEmbed.description = f"An error occured: `{err.__class__.__name__}`\n\n> {str(err)[:800]}"
-                await edit_response(embed=openAIErrorEmbed,ephemeral=True)
+                await edit_response(embed=openAIErrorEmbed,ephemeral=False)
             else:
 
                 if response:
@@ -286,24 +286,24 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                 desc += (flag+",\n")
             modFailEmbed.description=f">>> {flagged} {desc}"
             try:
-                await edit_response(embed=modFailEmbed,ephemeral=True)
+                await edit_response(embed=modFailEmbed,ephemeral=False)
             except TypeError:
                 await edit_response(embed=modFailEmbed)
         elif mod == -1:
             try:
-                await edit_response(embed=noAccessEmbed,ephemeral=True)
+                await edit_response(embed=noAccessEmbed,ephemeral=False)
             except TypeError:
                 await edit_response(embed=noAccessEmbed)
         elif mod == -2:
             openAIErrorEmbed.description = "APIError, OpenAI is likely down at the moment. Try again later."
             try:
-                await edit_response(embed=openAIErrorEmbed,ephemeral=True)
+                await edit_response(embed=openAIErrorEmbed,ephemeral=False)
             except TypeError:
                 await edit_response(embed=openAIErrorEmbed)
     else:
         remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)[0])
         brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
-        await edit_response(embed=brokeEmbed,ephemeral=True)
+        await edit_response(embed=brokeEmbed,ephemeral=False)
 
 async def _moderate(prompt):
     "Returns True if the prompt successfully got by moderation. Otherwise, returns False and a list of offending categories."
@@ -330,7 +330,7 @@ class VariationsButton(Button["VariationsView"]):
         self.num = number
         
     async def callback(self,ctx:Interaction):
-        await ctx.response.defer(thinking=True,ephemeral=True)
+        await ctx.response.defer(thinking=True,ephemeral=False)
         await _AICommands(ctx,None,AI_API.Variation,amount=1,resolution=Resolution.High,self=self)
 
 class VariationsView(View):
@@ -363,7 +363,7 @@ class PersonalitySelect(Select["RetryTextView"]):
     async def callback(self,ctx:Interaction):
         chan = ctx.channel
         auth = ctx.user
-        await ctx.response.defer(thinking=True,ephemeral=True)
+        await ctx.response.defer(thinking=True,ephemeral=False)
         sysMsg = None
         personality = self.values[0]
         if personality == "Random":
@@ -455,12 +455,12 @@ async def synthesisCMD(ctx:discord.Interaction,prompt:str,model:str,multilingual
         except elevenlabs.api.error.RateLimitError:
             embed = discord.Embed(colour=discord.Colour.red(),title="Synthesis failed!",description="> Global usage limit reached! Try shortening your prompt. Usages will be refreshed next month.")
             embed.add_field(name=noCharge,value=f"You have {rem} characters remaining.")
-            await ctx.followup.send(embed=embed,ephemeral=True)
+            await ctx.followup.send(embed=embed,ephemeral=False)
             return
         except:
             embed = discord.Embed(colour=discord.Colour.red(),title="Synthesis failed!",description="> An unknown error occured.")
             embed.add_field(name=noCharge,value=f"You have {rem} characters remaining.")
-            await ctx.followup.send(embed=embed,ephemeral=True)
+            await ctx.followup.send(embed=embed,ephemeral=False)
             return
         bytes = io.BytesIO(audio)
         embed = discord.Embed(colour=discord.Colour.blue(),title="Synthesis complete!",description=f"This synthesis cost {chars} characters.")
@@ -471,7 +471,7 @@ async def synthesisCMD(ctx:discord.Interaction,prompt:str,model:str,multilingual
     else:
         embed = discord.Embed(colour=discord.Colour.red(),title="Synthesis failed!",description=f"> You do not have enough characters for this. You have {rem} characters remaining, but this prompt uses {chars}.")
         embed.add_field(name=f"You have {rem} characters remaining.",value=creditRefresh(True))
-        await ctx.followup.send(embed=embed,ephemeral=True)
+        await ctx.followup.send(embed=embed,ephemeral=False)
     audio = None
 
 translateJSON = {
@@ -500,7 +500,7 @@ async def translateCMD(ctx:discord.Interaction,message:str,target_lang:str="EN")
     else:
         res = res.json()
         embed = discord.Embed(colour=discord.Colour.red(),title="An error occured whilst translating: ",description=f"```{res}```")
-        await ctx.followup.send("Translation failed.",embeds=[embed],ephemeral=True)
+        await ctx.followup.send("Translation failed.",embeds=[embed],ephemeral=False)
 
     
 async def helpCMD(ctx:discord.Interaction,command:str):
@@ -534,7 +534,7 @@ async def helpCMD(ctx:discord.Interaction,command:str):
             help.close()
         embed = discord.Embed(title="Command List",description=msg,colour=discord.Colour.blue())
 
-    await ctx.response.send_message(embed=embed,ephemeral=True)
+    await ctx.response.send_message(embed=embed,ephemeral=False)
 
 class ReactionRolesModal(Modal):
     emoji = TextInput(label="Reaction Emoji",placeholder=":horse:",required=True,min_length=1,max_length=100)
@@ -589,7 +589,7 @@ async def creditsCMD(ctx:discord.Interaction):
     remainingSynthesis = int(userDailySynthesis-float(readFromKey(ud,ctx.user.id,"characters",default=0)[0]))
     embed.add_field(name="You have ${0:.4f} credit remaining.".format(remainingBudget),value=f"This will refill <t:{getRefreshTime()}:R>.")
     embed.add_field(name=f"You have {str(remainingSynthesis)} characters remaining.",value=f"This will refill <t:{getRefreshTime()}:R>.")
-    await ctx.response.send_message(embed=embed,ephemeral=True)
+    await ctx.response.send_message(embed=embed,ephemeral=False)
 
 
 async def luckyCMD(ctx:discord.Interaction):
