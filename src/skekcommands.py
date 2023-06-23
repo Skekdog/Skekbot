@@ -1,4 +1,5 @@
 "Commands for Skekbot."
+from typing import Any
 import discord
 from discord.interactions import Interaction
 from discord.ui import *
@@ -14,6 +15,9 @@ import io,base64,os,requests
 import random,time,uuid,emoji
 
 import openai,elevenlabs
+
+skestbotID = 1111975854839435376
+skekbotID = 1054474727642628136
 
 elevenlabs.set_api_key(os.environ.get("TOKEN_ELEVENLABS"))
 openai.api_key = os.environ.get("TOKEN_OPENAI")
@@ -610,6 +614,105 @@ async def coin_flipCMD(ctx:discord.Interaction):
         return
     await ctx.followup.send("Tails!")
 
+class RPSButton(Button):
+    def __init__(self,tool:str):
+        super().__init__(style=discord.ButtonStyle.primary,label=tool)
+        match tool:
+            case "Rock":
+                self.emoji = '\N{ROCK}'
+                self.custom_id = "RPS_ROCK"
+            case "Paper":
+                self.emoji = '\N{NEWSPAPER}'
+                self.custom_id = "RPS_PAPER"
+            case "Scissors":
+                self.emoji = '\N{BLACK SCISSORS}'
+                self.custom_id = "RPS_SCISSORS"
+
+    async def callback(self,ctx:Interaction):
+        view:View = self.view
+        match ctx.user.id:
+            case view.own.id:
+                await ctx.response.defer()
+                view.ownChoice = self.custom_id[4:].capitalize()
+            case view.opp.id:
+                await ctx.response.defer()
+                view.oppChoice = self.custom_id[4:].capitalize()
+
+        if view.oppChoice and view.ownChoice:
+            view.stop()
+
+class RPSView(View):
+    def __init__(self,own:discord.Member,opp:discord.Member):
+        super().__init__(timeout=None)
+        self.own = own
+        self.opp = opp
+        self.ownChoice = None
+        self.oppChoice = None
+        self.add_item(RPSButton("Rock"))
+        self.add_item(RPSButton("Paper"))
+        self.add_item(RPSButton("Scissors"))
+
+    
+
+rps = ["Rock","Paper","Scissors"]
+async def rpsCMD(ctx:discord.Interaction,opp:discord.Member):
+    ownT,oppT = ctx.user,opp
+    own = f"<@{ownT.id}>"
+    opp = f"<@{opp.id}>"
+    rpsView = RPSView(ownT,oppT)
+
+    if oppT.id == skestbotID or oppT.id == skekbotID or oppT.id == ownT.id:
+        random.shuffle(rps)
+        rpsView.oppChoice = rps[0]
+
+    await ctx.response.send_message(opp+", "+own+" challenges you to a game of Rock, Paper, Scissors!",view=rpsView)
+    await rpsView.wait()
+    if rpsView.ownChoice and rpsView.oppChoice:
+        s = ctx.edit_original_response
+        ownChoice = rpsView.ownChoice
+        oppChoice = rpsView.oppChoice
+
+        if ownChoice and oppChoice:
+            choiceStr = f"{own} chose {ownChoice}.\n{opp} chose {oppChoice}.\n\n"
+            playingSelf = oppT.id == ownT.id
+            ownWin = f"{own} played Rock, Paper, Scissors against themselves in the mirror and won." if playingSelf else f"{own} wins!"
+            oppWin = f"{own} played Rock, Paper, Scissors against themselves in the mirror and lost." if playingSelf else f"{opp} wins!"
+            if oppChoice == ownChoice:
+                await s(content=choiceStr+(f"{own} played Rock, Paper, Scissors against themselves in the mirror." if playingSelf else "It's a draw!"))
+                return
+            match oppChoice:
+                case "Rock":
+                    match ownChoice:
+                        case "Scissors":
+                            await s(content=choiceStr+oppWin)
+                        case "Paper":
+                            await s(content=choiceStr+ownWin)
+                        case _:
+                            await s(content=choiceStr+oppWin)
+                case "Paper":
+                    match ownChoice:
+                        case "Scissors":
+                            await s(content=choiceStr+ownWin)
+                        case "Rock":
+                            await s(content=choiceStr+oppWin)
+                        case _:
+                            await s(content=choiceStr+oppWin)
+                case "Scissors":
+                    match ownChoice:
+                        case "Paper":
+                            await s(content=choiceStr+oppWin)
+                        case "Rock":
+                            await s(content=choiceStr+ownWin)
+                        case _:
+                            await s(content=choiceStr+oppWin)
+                case _:
+                    await s(content=choiceStr+ownWin)
+    elif ownChoice:
+        await s(opp+" did not make a choice in time!")
+    elif oppChoice:
+        await s(own+" did not make a choice in time!")
+    else:
+        await s("Nobody made their choice in time!")
 
 async def pollCMD(ctx:discord.Interaction,mode:str,question:str,options:str,expiryMode:str,expiryValue:int):
     """

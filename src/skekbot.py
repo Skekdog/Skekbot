@@ -317,6 +317,10 @@ async def speech_synthesis(ctx:Interaction,prompt:str,model:str,multilingual:boo
 async def coin_flip(ctx):
     await coin_flipCMD(ctx)
 
+@tree.command(name="rps",description="Rock, paper, scissors!")
+async def rps(ctx,opponent:discord.Member):
+    await rpsCMD(ctx,opponent)
+
 @tree.command(name="translate",description="Translate things. Due to a discord limitation, languages need to be split into 2 lists.")
 @cooldown(rate=1,per=1)
 @choices(new_language=[Choice(name=v[1],value=v[0]) for i,v in enumerate(deepLLanguageCodes.items()) if i < 25],
