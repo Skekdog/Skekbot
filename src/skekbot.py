@@ -16,12 +16,16 @@ import skekcommands
 from skekcommands import *
 from skekcommands import _AICommands
 from utils import readFromKey
+from generatewhatif import generate
 
 import inspect
 import os
 
 p = "polls"
 rr = "reactionroles"
+
+import openai,asyncio
+openai.api_key = os.environ.get("TOKEN_OPENAI")
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(current_dir)
@@ -50,7 +54,7 @@ cIDs = {
     "Abraham Lincoln": "sXiTYQw119NhyPp7vBTT0MuQDssS7VKOcPEW2f6emBc",
     "Ronald McDonald": "r9Mfy4bTaipFAZo_fkTYG6BSi4Z-jsarEzd4hjUjr3g",
     "Spongebob": "JCcce8JGM3fL2aVARXjng7ADYTxo45gwj3XAROiuxnE",
-    "Franklin Framed": "iHMpcc8cs5tF4dCY1-TtqzbiL67xRS6Y6S1IbPQgNrU",
+    "Franklin Framed": "iHMpcc8cs5tF4dCY1-TtqzbiL67xRS6Y6S1IbPQgNrU"
 }
 
 server1 = 920370076035739699
@@ -97,6 +101,8 @@ async def on_ready():
         await tree.sync(guild=Object(933989654204649482))
     print("Readied!")
 
+generatePrompt = "Creative no matter how illogical the prompt"
+userPrompt = " Remember this all just for fun sometimes the story should have a tragic end the story should be only 3 paragraphs sometimes start in media res"
 
 @client.event
 async def on_message(msg:Message):
@@ -130,6 +136,45 @@ async def on_message(msg:Message):
             await msg.reply(content="Not now",mention_author=False)
         elif con.find("doors")>-1:
             await msg.reply(content="Not now",mention_author=False)
+
+    if con.strip() == "what if":
+        scenario = generate()
+        newMsg = await chan.send(content="Generating a scenario...",reference=msg,mention_author=False)
+        response = None
+        cost = 0
+
+        
+        embed = discord.Embed(colour=discord.Colour.red(),title=scenario[:250]+("..." if scenario[:250] != scenario else ""))
+        try:
+            response = await asyncio.to_thread(openai.ChatCompletion.create,
+                model="gpt-3.5-turbo",
+                temperature=1,
+                max_tokens=384,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0,
+                user="1723",
+
+                messages = [
+                    {"role":"system","content":generatePrompt,
+                    "role":"user","content":scenario+userPrompt
+                    }
+                ]
+            )
+            embed.colour = discord.Colour.blue()
+            cost = getCost(AI_API.Chat,response.usage.total_tokens)
+            response = "```"+response.choices[0].message["content"]+"```"
+
+        except BaseException as err:
+            response = "An unknown error occurred whilst generating this scenario. Try using some other OpenAI commands, such as </ask gpt:1095068823759093831>, or try again later. \n\nError: "+str(err)
+
+        content = "Generated the tale of the time when "+scenario[0].lower()+scenario[1:]
+        if len(response) < 200:
+            content = "This scenario probably failed to generate."
+            embed.colour = discord.Colour.red()
+        embed.description = response
+        embed.add_field(name="This cost Skekbot ${0:.4f}.".format(cost),value="But you got it for free.")
+        await newMsg.edit(content=content,embed=embed)
 
     if chan.type == ChannelType.public_thread:
         if chan.name.find(" | ") > -1:
@@ -196,10 +241,10 @@ async def on_raw_reaction_add(payload:discord.RawReactionActionEvent):
     if val[0]:
         if react:
             if react.me:
-                # if int(val[0]) == user.id:
-                #     await react.remove(user)
-                #     await user.send("You can't vote on your own poll!")
-                #     return
+                if int(val[0]) == user.id:
+                    await react.remove(user)
+                    await user.send("You can't vote on your own poll!")
+                    return
 
                 for i in msg.reactions:
                     if i.emoji != react.emoji and i.me:
@@ -263,7 +308,7 @@ async def on_raw_reaction_remove(payload:discord.RawReactionActionEvent):
 @choices(resolution=[Choice(name="1024x1024",value="1024x1024"),Choice(name="512x512",value="512x512"),Choice(name="256x256",value="256x256")],
          amount=[Choice(name="1",value=1),Choice(name="2",value=2),Choice(name="3",value=3),Choice(name="4",value=4)])
 async def imagine(ctx,prompt:str,amount:int=1,resolution:str="256x256"):
-    await ctx.response.defer(thinking=True)
+    await ctx.response.defer(thinking=True,ephemeral=False)
     await imagineCMD(ctx,prompt,amount,resolution)
 
 
@@ -271,7 +316,7 @@ async def imagine(ctx,prompt:str,amount:int=1,resolution:str="256x256"):
 @cooldown(rate=1,per=10)
 @choices(amount=[Choice(name="1",value=1),Choice(name="2",value=2),Choice(name="3",value=3),Choice(name="4",value=4)])
 async def variations(ctx:Interaction,image:discord.Attachment,amount:int=1):
-    await ctx.response.defer(thinking=True)
+    await ctx.response.defer(thinking=True,ephemeral=False)
     await _AICommands(ctx,None,AI_API.Variation,resolution=Resolution.High,amount=amount,variations_image=image)
 
 
@@ -289,7 +334,7 @@ async def lucky(ctx):
 @cooldown(rate=1,per=1)
 @describe(prompt="Prompt to provide Lucky.")
 async def ask_lucky(ctx:Interaction,prompt:str):
-    await ctx.response.defer(thinking=True)
+    await ctx.response.defer(thinking=True,ephemeral=False)
     await askCMD(ctx,prompt,AI_API.Lucky)
 
 
@@ -310,12 +355,16 @@ async def ask_lucky(ctx:Interaction,prompt:str):
     ]
 )
 async def speech_synthesis(ctx:Interaction,prompt:str,model:str,multilingual:bool=False):
-    await ctx.response.defer(thinking=True)
+    await ctx.response.defer(thinking=True,ephemeral=False)
     await synthesisCMD(ctx,prompt,model,multilingual)
 
 @tree.command(name="coin_flip",description="Flip an unbiased coin.")
 async def coin_flip(ctx):
     await coin_flipCMD(ctx)
+
+@tree.command(name="rps",description="Rock, paper, scissors!")
+async def rps(ctx,opponent:discord.Member):
+    await rpsCMD(ctx,opponent)
 
 @tree.command(name="translate",description="Translate things. Due to a discord limitation, languages need to be split into 2 lists.")
 @cooldown(rate=1,per=1)
@@ -323,7 +372,7 @@ async def coin_flip(ctx):
          new_language_2=[Choice(name=v[1],value=v[0]) for i,v in enumerate(deepLLanguageCodes.items()) if i >= 25])
 @describe(suffocating_letters="The text to translate.",new_language="The language to translate the suffocating letters into.",new_language_2="The language to translate into, if it is not available in the first option.")
 async def translate(ctx:Interaction,suffocating_letters:Range[str,1,900],new_language:str,new_language_2:str=None):
-    await ctx.response.defer(thinking=True)
+    await ctx.response.defer(thinking=True,ephemeral=False)
     await translateCMD(ctx,suffocating_letters,target_lang=new_language_2 if new_language_2 else new_language)
 
 @tree.context_menu(name="Reaction Roles")
@@ -337,7 +386,7 @@ async def reaction_roles(ctx:Interaction,msg:Message):
 @tree.context_menu(name="Translate to English")
 @cooldown(rate=1,per=1)
 async def translate(ctx:Interaction,msg:Message):
-    await ctx.response.defer(thinking=True)
+    await ctx.response.defer(thinking=True,ephemeral=False)
     await translateCMD(ctx,msg.content)
 
 
@@ -359,9 +408,9 @@ class Converse(Group):
                           Choice(name="Military",value="Military"),])
     async def converse_gpt(self,ctx:Interaction,prompt:str,personality:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
         if ctx.channel.type == ChannelType.public_thread:
-            await ctx.response.send_message("You may not use this command in a thread.",ephemeral=True)
+            await ctx.response.send_message("You may not use this command in a thread.",ephemeral=False)
             return
-        await ctx.response.defer(thinking=True)
+        await ctx.response.defer(thinking=True,ephemeral=False)
         await converseCMD(ctx,prompt,AI_API.Chat,personality=personality,randomness=temperature,presence=presence_penalty,frequency=frequency_penalty)
 tree.add_command(Converse())
 
@@ -384,7 +433,7 @@ class Ask(Group):
                           Choice(name="Military",value="Military"),])
     async def ask_gpt(self,ctx,prompt:str,personality:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
         try:
-            await ctx.response.defer(thinking=True)
+            await ctx.response.defer(thinking=True,ephemeral=False)
         except discord.errors.NotFound:
             return
         await askCMD(ctx,prompt,AI_API.Chat,personality=personality,randomness=temperature,presence=presence_penalty,frequency=frequency_penalty)
@@ -395,7 +444,7 @@ class Ask(Group):
     @describe(prompt="Prompt to provide the AI.",temperature="How deterministic the response will be.",
               presence_penalty="Penalty to apply to the AI for not starting new topics.",frequency_penalty="Penalty to apply to the AI for repeating the same words.")
     async def ask_babbage(self,ctx,prompt:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
-        await ctx.response.defer(thinking=True)
+        await ctx.response.defer(thinking=True,ephemeral=False)
         await askCMD(ctx,prompt,AI_API.Completion,randomness=temperature,presence=presence_penalty,frequency=frequency_penalty)
 
     
@@ -403,7 +452,7 @@ class Ask(Group):
     @cooldown(rate=1,per=1)
     @describe(prompt="Prompt to provide the AI.",character_id="ID of the character you want to ask. This is found in the url of a character: chat?char=ID.")
     async def ask_character_ai(self,ctx,prompt:str,character_id:str):
-        await ctx.response.defer(thinking=True)
+        await ctx.response.defer(thinking=True,ephemeral=False)
         try:
             await askCMD(ctx,prompt,AI_API.CharacterAI,character_id=character_id)
         except discord.app_commands.errors.CommandInvokeError as err:
@@ -415,7 +464,7 @@ class Ask(Group):
     @cooldown(rate=1,per=1)
     @choices(character=[Choice(name=i[0],value=i[1]) for i in cIDs.items()])
     async def ask_character_ai_presets(self,ctx,prompt:str,character:str):
-        await ctx.response.defer(thinking=True)
+        await ctx.response.defer(thinking=True,ephemeral=False)
         try:
             await askCMD(ctx,prompt,AI_API.CharacterAI,character_id=character)
         except discord.app_commands.errors.CommandInvokeError as err:
