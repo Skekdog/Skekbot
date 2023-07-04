@@ -102,7 +102,9 @@ async def on_ready():
     print("Readied!")
 
 generatePrompt = "Creative no matter how illogical the prompt"
-userPrompt = " Remember this all just for fun sometimes the story should have a tragic end the story should be only 3 paragraphs sometimes start in media res"
+userPromptTragedy = " Remember this all just for fun sometimes the story should have a tragic end the story should be only 3 paragraphs start in middle of action"
+userPrompt = " Remember this all just for fun should be only 3 paragraphs start in middle of action"
+userPrompts = [userPromptTragedy,userPrompt]
 
 @client.event
 async def on_message(msg:Message):
@@ -131,21 +133,37 @@ async def on_message(msg:Message):
         await msg.reply(content=f"Hi {(name[:-1])[:1950]}, I'm dad!",mention_author=False,silent=True)
 
     ##Not now
-    if server1 == msg.guild.id:
-        if con.find("not now")>-1:
-            await msg.reply(content="Not now",mention_author=False)
-        elif con.find("doors")>-1:
-            await msg.reply(content="Not now",mention_author=False)
+    if msg.guild:
+        if server1 == msg.guild.id:
+            if con.find("not now")>-1:
+                await msg.reply(content="Not now",mention_author=False)
+            elif con.find("doors")>-1:
+                await msg.reply(content="Not now",mention_author=False)
 
-    if con.strip() == "what if":
+    strip = con.strip()
+    if strip == "what if" or strip == "but what if":
+        prevMsg = ""
+        if strip == "but what if":
+            for mesg in [i async for i in chan.history()]:
+                if mesg.content.lower().strip() != "but what if":
+                    if mesg.author.id == skekbotID or mesg.author.id == skestbotID:
+                        if mesg.embeds[0]:
+                            prevMsg = mesg.embeds[0].title[3:63]
+                            break
+                    else:
+                        prevMsg = mesg.content[:60]
+                        break
         scenario = generate()
+        scen = scenario
+        if prevMsg != "":
+            scen = prevMsg+" but then "+scenario[0].lower()+scenario[1:]
         newMsg = await chan.send(content="Generating a scenario...",reference=msg,mention_author=False)
         response = None
         cost = 0
 
-        
-        embed = discord.Embed(colour=discord.Colour.red(),title=scenario[:250]+("..." if scenario[:250] != scenario else ""))
+        embed = discord.Embed(colour=discord.Colour.red(),title=scen[0].upper()+scen[1:250]+("..." if scen[:250] != scen else ""))
         try:
+            random.shuffle(userPrompts)
             response = await asyncio.to_thread(openai.ChatCompletion.create,
                 model="gpt-3.5-turbo",
                 temperature=1,
@@ -157,7 +175,7 @@ async def on_message(msg:Message):
 
                 messages = [
                     {"role":"system","content":generatePrompt,
-                    "role":"user","content":scenario+userPrompt
+                    "role":"user","content":scen+userPrompts[0]
                     }
                 ]
             )
@@ -168,7 +186,7 @@ async def on_message(msg:Message):
         except BaseException as err:
             response = "An unknown error occurred whilst generating this scenario. Try using some other OpenAI commands, such as </ask gpt:1095068823759093831>, or try again later. \n\nError: "+str(err)
 
-        content = "Generated the tale of the time when "+scenario[0].lower()+scenario[1:]
+        content = "Generated the tale of the time when "+scen
         if len(response) < 200:
             content = "This scenario probably failed to generate."
             embed.colour = discord.Colour.red()
