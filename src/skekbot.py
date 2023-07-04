@@ -150,6 +150,8 @@ async def on_message(msg:Message):
                         if mesg.embeds[0]:
                             prevMsg = mesg.embeds[0].title[3:63]
                             break
+                        else:
+                            prevMsg = mesg.content[:60]
                     else:
                         prevMsg = mesg.content[:60]
                         break
