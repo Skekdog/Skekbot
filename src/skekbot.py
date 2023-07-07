@@ -16,12 +16,16 @@ import skekcommands
 from skekcommands import *
 from skekcommands import _AICommands
 from utils import readFromKey
+from generatewhatif import generate
 
 import inspect
 import os
 
 p = "polls"
 rr = "reactionroles"
+
+import openai,asyncio
+openai.api_key = os.environ.get("TOKEN_OPENAI")
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(current_dir)
@@ -50,7 +54,7 @@ cIDs = {
     "Abraham Lincoln": "sXiTYQw119NhyPp7vBTT0MuQDssS7VKOcPEW2f6emBc",
     "Ronald McDonald": "r9Mfy4bTaipFAZo_fkTYG6BSi4Z-jsarEzd4hjUjr3g",
     "Spongebob": "JCcce8JGM3fL2aVARXjng7ADYTxo45gwj3XAROiuxnE",
-    "Franklin Framed": "iHMpcc8cs5tF4dCY1-TtqzbiL67xRS6Y6S1IbPQgNrU",
+    "Franklin Framed": "iHMpcc8cs5tF4dCY1-TtqzbiL67xRS6Y6S1IbPQgNrU"
 }
 
 server1 = 920370076035739699
@@ -97,6 +101,10 @@ async def on_ready():
         await tree.sync(guild=Object(933989654204649482))
     print("Readied!")
 
+generatePrompt = "Creative no matter how illogical the prompt"
+userPromptTragedy = " Remember this all just for fun sometimes the story should have a tragic end the story should be only 3 paragraphs start in middle of action"
+userPrompt = " Remember this all just for fun should be only 3 paragraphs start in middle of action"
+userPrompts = [userPromptTragedy,userPrompt]
 
 @client.event
 async def on_message(msg:Message):
@@ -125,11 +133,68 @@ async def on_message(msg:Message):
         await msg.reply(content=f"Hi {(name[:-1])[:1950]}, I'm dad!",mention_author=False,silent=True)
 
     ##Not now
-    if server1 == msg.guild.id:
-        if con.find("not now")>-1:
-            await msg.reply(content="Not now",mention_author=False)
-        elif con.find("doors")>-1:
-            await msg.reply(content="Not now",mention_author=False)
+    if msg.guild:
+        if server1 == msg.guild.id:
+            if con.find("not now")>-1:
+                await msg.reply(content="Not now",mention_author=False)
+            elif con.find("doors")>-1:
+                await msg.reply(content="Not now",mention_author=False)
+
+    strip = con.strip()
+    if strip == "what if" or strip == "but what if":
+        prevMsg = ""
+        if strip == "but what if":
+            for mesg in [i async for i in chan.history()]:
+                if mesg.content.lower().strip() != "but what if":
+                    if mesg.author.id == skekbotID or mesg.author.id == skestbotID:
+                        if mesg.embeds[0]:
+                            prevMsg = mesg.embeds[0].title[3:63]
+                            break
+                        else:
+                            prevMsg = mesg.content[:60]
+                    else:
+                        prevMsg = mesg.content[:60]
+                        break
+        scenario = generate()
+        scen = scenario
+        if prevMsg != "":
+            scen = prevMsg+" but then "+scenario[0].lower()+scenario[1:]
+        newMsg = await chan.send(content="Generating a scenario...",reference=msg,mention_author=False)
+        response = None
+        cost = 0
+
+        embed = discord.Embed(colour=discord.Colour.red(),title=scen[0].upper()+scen[1:250]+("..." if scen[:250] != scen else ""))
+        try:
+            random.shuffle(userPrompts)
+            response = await asyncio.to_thread(openai.ChatCompletion.create,
+                model="gpt-3.5-turbo",
+                temperature=1,
+                max_tokens=384,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0,
+                user="1723",
+
+                messages = [
+                    {"role":"system","content":generatePrompt,
+                    "role":"user","content":scen+userPrompts[0]
+                    }
+                ]
+            )
+            embed.colour = discord.Colour.blue()
+            cost = getCost(AI_API.Chat,response.usage.total_tokens)
+            response = "```"+response.choices[0].message["content"]+"```"
+
+        except BaseException as err:
+            response = "An unknown error occurred whilst generating this scenario. Try using some other OpenAI commands, such as </ask gpt:1095068823759093831>, or try again later. \n\nError: "+str(err)
+
+        content = "Generated the tale of the time when "+scen
+        if len(response) < 200:
+            content = "This scenario probably failed to generate."
+            embed.colour = discord.Colour.red()
+        embed.description = response
+        embed.add_field(name="This cost Skekbot ${0:.4f}.".format(cost),value="But you got it for free.")
+        await newMsg.edit(content=content,embed=embed)
 
     if chan.type == ChannelType.public_thread:
         if chan.name.find(" | ") > -1:
@@ -196,10 +261,10 @@ async def on_raw_reaction_add(payload:discord.RawReactionActionEvent):
     if val[0]:
         if react:
             if react.me:
-                # if int(val[0]) == user.id:
-                #     await react.remove(user)
-                #     await user.send("You can't vote on your own poll!")
-                #     return
+                if int(val[0]) == user.id:
+                    await react.remove(user)
+                    await user.send("You can't vote on your own poll!")
+                    return
 
                 for i in msg.reactions:
                     if i.emoji != react.emoji and i.me:
