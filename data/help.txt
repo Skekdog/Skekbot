@@ -51,15 +51,11 @@ To use these commands, you must have enough credit. You can learn more about cre
 Parameters for all commands:
 > `Prompt:` Prompt to provide the AI.
 
-Parameters for GPT and Babbage:
+***GPT:*** ask OpenAI's ChatGPT model (gpt-3.5-turbo)
+> `Personality:` Personality of the AI.
 > `Temperature:` How non-deterministic the AI will be. A high temperature means the AI is more likely to generate different responses.
 > `Presence_Penalty:` Penalty to apply to the AI for not starting new topics.
 > `Frequency_Penalty:` Penalty to apply to the AI for repeating the same words.
-
-***GPT:*** ask OpenAI's ChatGPT model (gpt-3.5-turbo)
-Personality: Personality of the AI.
-
-***Babbage:*** ask OpenAI's Completions model (text-babbage-002)
 
 ***CharacterAI:*** ask a Character on https://beta.character.ai/. Does not cost credits.
 > `Character_ID:` ID of the character, can be found in the url: `https://beta.character.ai/.../chat?char=CHARACTER ID`

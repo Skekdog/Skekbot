@@ -1,6 +1,0 @@
-[runtime]
-static-build = "python-static-build"
-
-[[statics]]
-directory = "data"  # Replace with the directory name where the file is located
-writeable = true

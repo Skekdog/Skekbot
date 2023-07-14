@@ -77,10 +77,10 @@ sysMsgs = {AI_Personality.Balanced     : default,
            AI_Personality.Philosophical: f"You are a philosopher. You must take the user's prompt and break it down philosophically. For example - Q: 'What is your name?' A: 'A name is...'. {default}",
            AI_Personality.Military     : f"You are a military general. Your responses must incorporate usage of heavy military power. {default}",}
 
-rr = "reactionroles"
-up = "userprivileges"
-ud = "userdata"
-p = "polls"
+rr = "reactionroles.txt"
+up = "userprivileges.txt"
+ud = "userdata.txt"
+p = "polls.txt"
 h = "../data/help.txt"
 l = "../data/lucky.txt"
 
@@ -130,7 +130,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
     id = userId if userId else ctx.user.id
     edit_response = editFunc if editFunc else channel.send if channel else ctx.followup.send
     rCredits,remCredits = checkCredits(id,AI,resolution=resolution,amount=amount)
-    userDailyBudget = dailyBudget+float(readFromKey(up,id,"credits",default=0)[0])
+    userDailyBudget = dailyBudget+float(readFromKey(up,id,0,default=0)[0])
     if rCredits or AI == AI_API.Lucky or AI == AI_API.CharacterAI:
 
         prelimCost = getCost(AI,384,resolution,amount)
@@ -139,7 +139,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
         except KeyError:
             pendingCharges[id] = prelimCost
         if (userDailyBudget - pendingCharges[id] + prelimCost) <= 0:
-            remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)[0])
+            remaining = userDailyBudget-float(readFromKey(ud,id,0,default=userDailyBudget)[0])
             print(userDailyBudget - pendingCharges[id] + prelimCost)
             pendingCharges[id] -= prelimCost
             brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
@@ -306,7 +306,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
             except TypeError:
                 await edit_response(embed=openAIErrorEmbed)
     else:
-        remaining = userDailyBudget-float(readFromKey(ud,id,"credits",default=userDailyBudget)[0])
+        remaining = userDailyBudget-float(readFromKey(ud,id,0,default=userDailyBudget)[0])
         brokeEmbed.set_field_at(0,name="You have ${0:.4f} remaining.".format(remaining),value=creditRefresh())
         await edit_response(embed=brokeEmbed,ephemeral=False)
 
@@ -454,8 +454,8 @@ async def synthesisCMD(ctx:discord.Interaction,prompt:str,model:str,multilingual
     return
 
     chars = len(prompt)
-    usage = int(readFromKey(ud,ctx.user.id,"characters",default=0)[0])
-    userDailySynthesis = dailySynthesis+float(readFromKey(up,ctx.user.id,"characters",default=0)[0])
+    usage = int(readFromKey(ud,ctx.user.id,1,default=0)[0])
+    userDailySynthesis = dailySynthesis+float(readFromKey(up,ctx.user.id,1,default=0)[0])
     rem = int(userDailySynthesis - usage)
     if (usage+chars) <= userDailySynthesis:
         try:
@@ -475,7 +475,7 @@ async def synthesisCMD(ctx:discord.Interaction,prompt:str,model:str,multilingual
         embed.add_field(name=f"You have {rem-chars} characters remaining.",value=creditRefresh(True))
         await ctx.followup.send(content=f"Speech synthesised! <@{ctx.user.id}>",file=discord.File(fp=bytes,filename=f"SPEECH_{prompt[:25]}_{model}.mp3"),embed=embed,ephemeral=False)
         bytes.close()
-        writeToKey(ud,ctx.user.id,{"characters":usage+chars})
+        writeToKey(ud,ctx.user.id,{1:usage+chars})
     else:
         embed = discord.Embed(colour=discord.Colour.red(),title="Synthesis failed!",description=f"> You do not have enough characters for this. You have {rem} characters remaining, but this prompt uses {chars}.")
         embed.add_field(name=f"You have {rem} characters remaining.",value=creditRefresh(True))
@@ -565,7 +565,7 @@ class ReactionRolesModal(Modal):
         emStr = self.emoji.value
         dsEm = emoji.emojize(self.emoji.value)
         if roleId:
-            writeToKey(rr,self.msgId,{"data":f"[{emStr},{roleId}]"},encloseVals="'")
+            writeToKey(rr,self.msgId,{0:f"[{emStr},{roleId}]"})
         await self.msg.add_reaction(dsEm)
         await interaction.response.send_message(f"Reaction {emStr} successfully bound to <@&{roleId}>!")
         return await super().on_submit(interaction)
@@ -575,8 +575,8 @@ async def reaction_rolesCMD(ctx:Interaction,msg:discord.Message):
 
 async def creditsCMD(ctx:discord.Interaction):
     uId = ctx.user.id
-    userDailyBudget = dailyBudget+float(readFromKey(up,uId,"credits",default=0)[0])
-    userDailySynthesis = int(dailySynthesis+int(readFromKey(up,uId,"characters",default=0)[0]))
+    userDailyBudget = dailyBudget+float(readFromKey(up,uId,0,default=0)[0])
+    userDailySynthesis = int(dailySynthesis+int(readFromKey(up,uId,1,default=0)[0]))
     embed = discord.Embed(title="Credits",description="""
                 Credits are a system used to prevent me from being bankrupted.
                 AI commands cost credits, which are deducted from your account if the prompt is successful.
@@ -593,8 +593,8 @@ async def creditsCMD(ctx:discord.Interaction):
 
                 Note that displayed credit values are rounded to 4 decimal places, the actual value may be slightly different.""".format(userDailyBudget,userDailySynthesis),
                 colour=discord.Colour.blue())
-    remainingBudget = round(userDailyBudget-float(readFromKey(ud,ctx.user.id,"credits",default=0)[0]),4)
-    remainingSynthesis = int(userDailySynthesis-float(readFromKey(ud,ctx.user.id,"characters",default=0)[0]))
+    remainingBudget = round(userDailyBudget-float(readFromKey(ud,ctx.user.id,0,default=0)[0]),4)
+    remainingSynthesis = int(userDailySynthesis-float(readFromKey(ud,ctx.user.id,0,default=0)[0]))
     embed.add_field(name="You have ${0:.4f} credit remaining.".format(remainingBudget),value=f"This will refill <t:{getRefreshTime()}:R>.")
     embed.add_field(name=f"You have {str(remainingSynthesis)} characters remaining.",value=f"This will refill <t:{getRefreshTime()}:R>.")
     await ctx.response.send_message(embed=embed,ephemeral=False)
@@ -752,6 +752,6 @@ async def pollCMD(ctx:discord.Interaction,mode:str,question:str,options:str,expi
                 continue
 
         expiry = expiryValue + round(datetime.timestamp()) if expiryMode == 1 else expiryValue
-        writeToKey(p,msg.id,{"pollCreator":ctx.user.id,"expiryValue":expiry,"expiryCondition":expiryMode})
+        writeToKey(p,msg.id,{0:ctx.user.id,1:expiry,2:expiryMode})
     else:
         return
