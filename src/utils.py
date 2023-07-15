@@ -7,21 +7,9 @@ from typing import Any
 from skekenums import *
 
 import time,os,io
-import mysql.connector as sql
 
-up = "userprivileges"
-ud = "userdata"
-print("Connecting...")
-db = sql.connect(
-    host=os.environ.get("MYSQLHOST"),
-    user=os.environ.get("MYSQLUSER"),
-    password=os.environ.get("MYSQLPASSWORD"),
-    database=os.environ.get("MYSQLDATABASE"),
-    port=os.environ.get("MYSQLPORT"),
-)
-print("Connected to database!")
-db.autocommit = True
-dbCur = db.cursor()
+up = "userprivileges.txt"
+ud = "userdata.txt"
 
 dailyBudget = 0.04
 prices = {
@@ -33,134 +21,132 @@ prices = {
     AI_API.Completion:0.0005,
 }
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-
-class SQLDict(dict):
-    def __str__(self) -> str:
-        len = self.__len__()
-        fin = ""
-        for i,v in enumerate(self.items()):
-            fin += (str(v[0])+" = "+str(v[1])+("," if i < len-1 else ""))
-        return fin
+db = os.path.dirname(os.path.abspath(__file__))+"/../database"
+os.chdir(db)
     
-    def keys(self) -> str:
-        len = self.__len__()
-        fin = ""
-        for i,v in enumerate(list(super().keys())):
-            fin += str(v)+("," if i < len-1 else "")
-        return fin
-
-    def values(self) -> str:
-        len = self.__len__()
-        fin = ""
-        for i,v in enumerate(list(super().values())):
-            fin += str(v)+("," if i < len-1 else "")
-        return fin
-
-def readFromKey(database:str,key:str,columns:str="*",default=None) -> tuple[Any]:
+def evaluateRefresh(string:str) -> str or None:
+    string = string.split("=")[1]
+    vals = string.split(";")
+    lastTime,interval = float(vals[0]),float(vals[1])
+    curTime = time.time()
+    if lastTime + interval > curTime:
+        return
+    return str(curTime - (curTime%interval))
+    
+def readFromKey(file:str,key:str,index:int|list[int]|None=None,default:Any=None) -> list[Any]:
     """
-    Returns the values stored at the key in table. Returns None if key does not exist.
-    A default can be set as the return value, instead of None.
-    If file has a `__!!lastrefresh` key, this function will also refresh the file if the 2nd value in seconds has passed since the first value.
+    Returns the value stored at index in file. Returns default or None if key does not exist.
+    If file has a `__lastrefresh` key, this function will also refresh the file if the 2nd value in seconds has passed since the first value.
+    
+    File: the name of the file.
+    Index: the position where the value is, 0-indexed. Can be a list of values to retrieve.  Will return a list ordered from smallest index to largest index.
     """
 
-    if type(columns) is not str:
-        raise TypeError(f"Expected str for columns, got {type(columns)}")
-    global dbCur
-    default = (default,)
-    key=str(key)
-    key = "'"+key+"'"
-
-    try:
-        try:
-            dbCur.execute(f"SELECT * FROM {database} WHERE id = 'lastrefresh'")
-            values = dbCur.fetchone()
-            last = values[1]
-            period = values[2]
-            curTime = time.time()
-            newPeriod = curTime-(curTime%period)
-            if curTime >= ((last+(period-(last%period))%period) + period):
-                #// It's low noon
-                dbCur.execute(f"TRUNCATE {database}")
-                dbCur.execute(f"INSERT INTO {database} (id,credits,characters) VALUES ('lastrefresh',{newPeriod},{period})")
-                return default
-        except sql.errors.ProgrammingError:
-            pass
-        except TypeError:
-            pass
-        dbCur.execute(f"SELECT {columns} FROM {database} WHERE id = {key}")
-        val = dbCur.fetchone()
-        if val is None: return default
-        return val if (len(val) > 0 and (any(val) or val[0] == 0)) else default
-    except sql.errors.DatabaseError as err:
-        print(err)
-        print("Reconnecting...")
-        db = sql.connect(
-            host=os.environ.get("MYSQLHOST"),
-            user=os.environ.get("MYSQLUSER"),
-            password=os.environ.get("MYSQLPASSWORD"),
-            database=os.environ.get("MYSQLDATABASE"),
-            port=os.environ.get("MYSQLPORT"),
-        )
-        print("Reconnected to database!")
-        db.autocommit = True
-        dbCur = db.cursor()
-        return readFromKey(database,key[1:-1],columns=columns,default=default[0])
-    
-def writeToKey(database:str,key:str,values:dict,encloseVals:str="") -> None:
-    "Replaces the values at columns of key in database with values. If the key does not exist, it is added."
-    if not isinstance(values,dict):
-        raise TypeError(f"Expected dict for values, got {type(values)}")
-    
-    key=str(key)
-    key = "'"+key+"'"
-    if type(values) is not SQLDict:
-        values = SQLDict(values)
-    global dbCur
-
-    try:
-        dbCur.execute(f"SELECT * FROM {database} WHERE id = {key}")
-        if dbCur.fetchone() is not None:
-            dbCur.execute(f"UPDATE {database} SET {str(values)} WHERE id = {key}")
-        else:
-            dbCur.execute(f"INSERT INTO {database} (id,{values.keys()}) VALUES ({key},{encloseVals}{values.values()}{encloseVals})")
-    except sql.errors.DatabaseError as err:
-        print(err)
-        print("Reconnecting...")
-        db = sql.connect(
-            host=os.environ.get("MYSQLHOST"),
-            user=os.environ.get("MYSQLUSER"),
-            password=os.environ.get("MYSQLPASSWORD"),
-            database=os.environ.get("MYSQLDATABASE"),
-            port=os.environ.get("MYSQLPORT"),
-        )
-        print("Reconnected to database!")
-        db.autocommit = True
-        dbCur = db.cursor()
-        return writeToKey(database,key[1:-1],values,encloseVals=encloseVals)
-
-    
-def deleteKey(database:str,key:str) -> None:
-    "Deletes a key from a database."
+    os.chdir(db)
     key = str(key)
-    global dbCur
-    try:
-        dbCur.execute(f"DELETE FROM {database} WHERE id = {key}")
-    except sql.errors.DatabaseError as err:
-        print(err)
-        print("Reconnecting...")
-        db = sql.connect(
-            host=os.environ.get("MYSQLHOST"),
-            user=os.environ.get("MYSQLUSER"),
-            password=os.environ.get("MYSQLPASSWORD"),
-            database=os.environ.get("MYSQLDATABASE"),
-            port=os.environ.get("MYSQLPORT"),
-        )
-        print("Reconnected to database!")
-        db.autocommit = True
-        dbCur = db.cursor()
-        deleteKey(database,key)
+    if type(index) is int:
+        index = [index]
+    if type(default) is not list:
+        default = [default]
+
+    with open(file,"r+") as f:
+        lines = f.readlines()
+        f.seek(0)
+        for line in lines:
+            vals = line.split("=")[1].split(";")
+            if line.startswith("__lastrefresh"):
+                newTime = evaluateRefresh(line)
+                if not newTime:
+                    continue
+                newLines=["__lastrefresh="+newTime+";"+vals[1]]
+                f.truncate(0)
+                f.writelines(newLines)
+                return default
+            if line.startswith(key):
+                if not index:
+                    return vals
+                return [z for k,z in enumerate(vals) if k in index]
+        f.close()
+    return default
+
+def writeToKey(file:str,key:str,indexVals:dict[int,str]) -> None:
+    """
+    Replaces index with value in file.
+
+    File: the name of the file.
+    Key: the key.
+    IndexVals: the values to set at index. If index is far off, will be padded with semi-colons.
+    """
+
+    os.chdir(db)
+    key = str(key)
+
+    with open(file,"r+") as f:
+        lines = f.readlines()
+        f.seek(0)
+        newLines = lines
+
+        lineNum = None
+        maxIndex = 0
+        for i,line in enumerate(lines):
+            if not line.startswith(key):
+                continue
+
+            vals = line.split("=")[1].split(";")
+            originalVals = {}
+            for k,v in enumerate(vals):
+                if v != "":
+                    originalVals[k] = v
+            for k,v in indexVals.items():
+                originalVals[k] = str(v)
+            indexVals = originalVals
+            maxIndex = len(vals)-1
+            lineNum = i
+            break
+
+        highestIndex = 0
+        for k in indexVals:
+            if k > highestIndex: highestIndex = k
+        if highestIndex > maxIndex: maxIndex = highestIndex
+
+        holdStr = ";"*maxIndex
+        newStr = ""
+        splt = holdStr.split(";")
+        for k,_ in enumerate(splt):
+            try: newStr += str(indexVals[k])
+            except KeyError: pass
+            newStr += ";" if k < len(splt)-1 else ""
+
+        
+        if lineNum: newLines[lineNum] = key+"="+newStr+"\n"
+        else:
+            try: newLines[-1] = newLines[-1]+"\n"
+            except IndexError: pass
+            newLines.append(key+"="+newStr)
+
+        f.writelines(newLines)
+        f.truncate()
+        f.close()
+
+    
+def deleteKey(file:str,key:str) -> None:
+    "Deletes a key from a file."
+
+    os.chdir(db)
+    key = str(key)
+
+    with open(file,"r+") as f:
+        lines = f.readlines()
+        f.seek(0)
+        newLines = lines
+        for i,line in enumerate(lines):
+            if line.startswith(key):
+                newLines.pop(i)
+                break
+
+        f.writelines(newLines)
+        f.truncate()
+        f.close()
 
 def getCost(model:AI_API,tokens=0,resolution="256x256",amount=1) -> float:
     "Calculates cost of using an OpenAI command."
@@ -169,19 +155,19 @@ def getCost(model:AI_API,tokens=0,resolution="256x256",amount=1) -> float:
 def spendCredits(userID:int,model:AI_API,tokens=0,resolution="256x256",amount=1) -> tuple[float,float]:
     "Deducts calculated credits from the user. Returns calculated value and remaining out of daily budget."
 
-    userDailyBudget = dailyBudget+float(readFromKey(up,userID,"credits",default=0)[0])
-    currentSpend = float(readFromKey(ud,userID,"credits",default=0)[0])
+    userDailyBudget = dailyBudget+float(readFromKey(up,userID,0,default=0)[0])
+    currentSpend = float(readFromKey(ud,userID,0,default=0)[0])
     cost = getCost(model,tokens,resolution,amount)
 
-    writeToKey(ud,userID,{"credits":cost+currentSpend})
+    writeToKey(ud,userID,{0:cost+currentSpend})
     remaining = userDailyBudget-cost-currentSpend
     return cost, remaining
 
 def checkCredits(userID:int,model:AI_API,resolution=Resolution.Low,amount=1) -> bool|int:
     "Returns bool for images. Returns amount of tokens that can be used with a chat model, or False if none."
     
-    userDailyBudget = dailyBudget+float(readFromKey(up,userID,"credits",default=0)[0])
-    spends = float(readFromKey(ud,userID,"credits",default=0)[0])
+    userDailyBudget = dailyBudget+float(readFromKey(up,userID,0,default=0)[0])
+    spends = float(readFromKey(ud,userID,0,default=0)[0])
 
     if model in [AI_API.Image,AI_API.Variation]:
         return ((userDailyBudget - spends >= (prices[resolution]*amount)),(userDailyBudget - spends))

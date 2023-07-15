@@ -21,8 +21,8 @@ from generatewhatif import generate
 import inspect
 import os
 
-p = "polls"
-rr = "reactionroles"
+p = "polls.txt"
+rr = "reactionroles.txt"
 
 import openai,asyncio
 openai.api_key = os.environ.get("TOKEN_OPENAI")
@@ -59,7 +59,7 @@ cIDs = {
 
 server1 = 920370076035739699
 server2 = 1051204758842658916
-isTest = (os.environ.get("ISHOSTED") is None)
+isTest = true
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -147,14 +147,18 @@ async def on_message(msg:Message):
             for mesg in [i async for i in chan.history()]:
                 if mesg.content.lower().strip() != "but what if":
                     if mesg.author.id == skekbotID or mesg.author.id == skestbotID:
-                        if mesg.embeds[0]:
-                            prevMsg = mesg.embeds[0].title[3:63]
-                            break
+                        if msg.embeds:
+                            if mesg.embeds[0]:
+                                prevMsg = mesg.embeds[0].title[3:97]
+                            else:
+                                prevMsg = mesg.content[:100]
                         else:
-                            prevMsg = mesg.content[:60]
+                            prevMsg = mesg.content[:100]
                     else:
-                        prevMsg = mesg.content[:60]
-                        break
+                        prevMsg = mesg.content[:100]
+                    for i in mesg.mentions:
+                        prevMsg = prevMsg.replace(f"<@{i.id}>",i.display_name)
+                    break
         scenario = generate()
         scen = scenario
         if prevMsg != "":
@@ -257,7 +261,7 @@ async def on_raw_reaction_add(payload:discord.RawReactionActionEvent):
             react = i
             break
 
-    val = readFromKey(p,msgId,"pollCreator,expiryValue,expiryCondition")
+    val = readFromKey(p,msgId)
     if val[0]:
         if react:
             if react.me:
@@ -296,7 +300,7 @@ async def on_raw_reaction_add(payload:discord.RawReactionActionEvent):
                         overallResults += f"{str(i)}: {str(v)} votes\n"
                     await msg.edit(content=f"Poll concluded at <t:{round(time.time())}:F>!\nThe winning option was {winner} with {top} vote(s).\n{overallResults}")
 
-    r = readFromKey(rr,msgId,"data")[0]
+    r = readFromKey(rr,msgId,0)[0]
     if r:
         reactRoles = r.split("[]")
         await reactionRoles(reactRoles,payload.event_type,react,user)
@@ -318,7 +322,7 @@ async def on_raw_reaction_remove(payload:discord.RawReactionActionEvent):
             react = i
             break
 
-    reactRoles = readFromKey(rr,msgId,"data")[0].split("[]")
+    reactRoles = readFromKey(rr,msgId,0)[0].split("[]")
     await reactionRoles(reactRoles,payload.event_type,react,user)
 
 
@@ -457,17 +461,7 @@ class Ask(Group):
         except discord.errors.NotFound:
             return
         await askCMD(ctx,prompt,AI_API.Chat,personality=personality,randomness=temperature,presence=presence_penalty,frequency=frequency_penalty)
-
-    
-    @command(name="babbage",description="Ask OpenAI's Babbage Completion model. Good at completing sentences or patterns, cheaper.")
-    @cooldown(rate=1,per=3)
-    @describe(prompt="Prompt to provide the AI.",temperature="How deterministic the response will be.",
-              presence_penalty="Penalty to apply to the AI for not starting new topics.",frequency_penalty="Penalty to apply to the AI for repeating the same words.")
-    async def ask_babbage(self,ctx,prompt:str,temperature:Range[float,0,1]=0.7,presence_penalty:Range[float,-2,2]=0.7,frequency_penalty:Range[float,-2,2]=0.6):
-        await ctx.response.defer(thinking=True,ephemeral=False)
-        await askCMD(ctx,prompt,AI_API.Completion,randomness=temperature,presence=presence_penalty,frequency=frequency_penalty)
-
-    
+   
     @command(name="character_ai",description="Ask a character on CharacterAI. Does not cost credits.")
     @cooldown(rate=1,per=1)
     @describe(prompt="Prompt to provide the AI.",character_id="ID of the character you want to ask. This is found in the url of a character: chat?char=ID.")
