@@ -21,7 +21,7 @@ prices = {
     AI_API.Completion:0.0005,
 }
 
-db = os.path.dirname(os.path.abspath(__file__))+"\\..\\database"
+db = os.path.dirname(os.path.abspath(__file__))+"/../database"
 os.chdir(db)
     
 def evaluateRefresh(string:str) -> str or None:
