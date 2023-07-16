@@ -26,6 +26,9 @@ Shows information about the credit system.
 --help | </help:1085591762707435701>
 You know what this command does. You can specify a command field to get thorough information on a given command.
 
+--setup_bot_announcements | </setup_bot_announcements:1130081344660197521>
+Sets (or unsets) this channel to receive bot announcements. You must have the manage_channels permission to run this command.
+
 --lucky | </lucky:1084927714819051550>
 Provides a random fortune cookie message.
 
@@ -44,7 +47,7 @@ Uses DeepL to translate text. To use the 2nd language list, set a language in th
 --coin_flip | </coin_flip:1112098265119338507>
 Flips an unbiased coin.
 
---ask | </ask gpt:1095068823759093831>, </ask babbage:1095068823759093831>, </ask character_ai:1095068823759093831>, </ask character_ai_ preset:1095068823759093831>
+--ask | </ask gpt:1095068823759093831>
 Commands for asking AI models.
 To use these commands, you must have enough credit. You can learn more about credits with </credits:1091657325535821914>.
 
@@ -56,13 +59,6 @@ Parameters for all commands:
 > `Temperature:` How non-deterministic the AI will be. A high temperature means the AI is more likely to generate different responses.
 > `Presence_Penalty:` Penalty to apply to the AI for not starting new topics.
 > `Frequency_Penalty:` Penalty to apply to the AI for repeating the same words.
-
-***CharacterAI:*** ask a Character on https://beta.character.ai/. Does not cost credits.
-> `Character_ID:` ID of the character, can be found in the url: `https://beta.character.ai/.../chat?char=CHARACTER ID`
-
-***CharacterAI Preset:*** ask a preset Character on https://beta.character.ai/. Does not cost credits.
-> `Character`: The character to ask.
-
 
 --converse | </converse gpt:1106698780541198430>
 Commands for conversing with AI models. To continue a conversation, send a message in the attached thread when this command is executed.

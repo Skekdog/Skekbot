@@ -5,7 +5,6 @@ from discord.interactions import Interaction
 from discord.ui import *
 
 from datetime import datetime
-# from characterai import pyAsyncCAI as CAI
 
 from skekenums import *
 from utils import *
@@ -22,9 +21,6 @@ skekbotID = 1054474727642628136
 elevenlabs.set_api_key(os.environ.get("TOKEN_ELEVENLABS"))
 openai.api_key = os.environ.get("TOKEN_OPENAI")
 deepLToken = os.environ.get("TOKEN_DEEPL")
-
-# t = os.environ.get("TOKEN_CHARACTERAI")
-# CAIClient = CAI(t)
 
 dailyBudget = 0.04
 dailySynthesis = 250
@@ -114,8 +110,7 @@ otherErrorEmbed.add_field(name="This attempt cost $0.0000.",value="You have $0.0
 # // Each passing day this becomes more disgusting
 async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                       resolution:Resolution=None,amount:int=None,variations_image=None,self=None,
-                      temp=0.7,presence=0,frequency=0,
-                      character_id=None,personality="Babbage",systemMessage:str=None,chatOverride:list=None,botName=None,
+                      temp=0.7,presence=0,frequency=0,personality=AI_Personality.Balanced,systemMessage:str=None,chatOverride:list=None,botName=None,
                       threaded=False,userId=None,channel:discord.TextChannel=None,userName=None,msg:discord.Message=None,editFunc:callable=None) -> None:
     "Run default checks and operations before running an OpenAI command."
 
@@ -125,7 +120,7 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
     edit_response = editFunc if editFunc else channel.send if channel else ctx.followup.send
     rCredits,remCredits = checkCredits(id,AI,resolution=resolution,amount=amount)
     userDailyBudget = dailyBudget+float(readFromKey(up,id,0,default=0)[0])
-    if rCredits or AI == AI_API.Lucky or AI == AI_API.CharacterAI:
+    if rCredits:
 
         prelimCost = getCost(AI,384,resolution,amount)
         try:
@@ -184,25 +179,6 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                             messages = chatOverride if chatOverride else [{"role": "system", "content": systemMessage.format(userName,botName)},
                                         {"role": "user", "content": prompt}]
                         )
-                    case AI_API.Completion:
-                        response = await asyncio.to_thread(openai.Completion.create,
-                            model="text-babbage-001",
-                            prompt=prompt,
-                            temperature=temp,
-                            max_tokens=int(min(rCredits,384)),
-                            top_p=1,
-                            frequency_penalty=frequency,
-                            presence_penalty=presence,
-                            user=str(id)
-                        )
-                    case AI_API.Lucky:
-                        otherErrorEmbed.description = "CharacterAI commands are currently unavailable. Check back later."
-                        await edit_response(embed=otherErrorEmbed,ephemeral=False)
-                        return
-                    case AI_API.CharacterAI:
-                        otherErrorEmbed.description = "CharacterAI commands are currently unavailable. Check back later."
-                        await edit_response(embed=otherErrorEmbed,ephemeral=False)
-                        return
                     case _:
                         raise ValueError(f"Unknown API: {AI_API}")
             except ValueError as err:
@@ -243,12 +219,9 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                                 await edit_response(content=f"\n\nVariation completed! <@{id}>",embed=embed,files=files,view=VariationsView(attachments=files),ephemeral=False)
                             except TypeError:
                                 await edit_response(content=f"\n\nVariation completed! <@{id}>",embed=embed,files=files,view=VariationsView(attachments=files))
-                    elif AI == AI_API.Chat or AI == AI_API.Completion:
+                    elif AI == AI_API.Chat:
                         tokens = response.usage.total_tokens
-                        if AI == AI_API.Chat:
-                            response = response.choices[0].message["content"]
-                        else:
-                            response = response.choices[0].text
+                        response = response.choices[0].message["content"]
                         response = response.replace("`","`​")
                         cost,remaining = spendCredits(id,AI,tokens=int(tokens))
                         pendingCharges[id] -= prelimCost
@@ -264,20 +237,6 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                             await edit_response(content=content,embed=embed,view=RetryTextView(prompt=prompt,mode=AI,temperature=temp,presence=presence,frequency=frequency),ephemeral=False)
                         except TypeError:
                             await edit_response(content=content,embed=embed,view=RetryTextView(prompt=prompt,mode=AI,temperature=temp,presence=presence,frequency=frequency))
-                    elif AI == AI_API.Lucky:
-                        embed = discord.Embed(colour=discord.Colour.blue(),title=(f"\> {prompt}") if prompt[:240] == prompt else prompt[:240]+"...",description=f"```{response}```")
-                        embed.add_field(name="Lucky AI does not cost credits.",value="You have not been charged.")
-                        try:
-                            await edit_response(content=f"\n\nInterrogation completed! <@{id}> \nBe aware that Lucky AI is still in Alpha. It does not work well.",embed=embed,ephemeral=False)
-                        except TypeError:
-                            await edit_response(content=f"\n\nInterrogation completed! <@{id}> \nBe aware that Lucky AI is still in Alpha. It does not work well.",embed=embed)
-                    elif AI == AI_API.CharacterAI:
-                        embed = discord.Embed(colour=discord.Colour.blue(),title=(f"\> {prompt}") if prompt[:240] == prompt else prompt[:240]+"...",description=f"```{response}```")
-                        embed.add_field(name="CharacterAI does not cost credits.",value="You have not been charged.")
-                        try:
-                            await edit_response(content=f"\n\nInterrogation completed! <@{id}> \nBe aware that the CharacterAI command is still in Alpha. It does not work well.",embed=embed,ephemeral=False)
-                        except TypeError:
-                            await edit_response(content=f"\n\nInterrogation completed! <@{id}> \nBe aware that the CharacterAI command is still in Alpha. It does not work well.",embed=embed)
 
         elif mod == False:
             desc = ""
@@ -422,7 +381,7 @@ async def imagineCMD(ctx:discord.Interaction,prompt:str,amount=1,resolution=Reso
     
 randomPool = list(AI_Personality)
 randomPool.remove(AI_Personality.Sentient)
-async def askCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomness=0.7,presence=0.6,frequency=0.8,character_id=None):
+async def askCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomness=0.7,presence=0.6,frequency=0.8):
     sysMsg = None
     if personality == "Random":
         personality = random.choice(randomPool)
@@ -430,10 +389,10 @@ async def askCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomness=0.7
     elif personality:
         personality = AI_Personality[personality.capitalize()]
         sysMsg = sysMsgs[personality]
-    personality = personality if personality else "Babbage"
-    await _AICommands(ctx,prompt,model,temp=randomness,presence=presence,frequency=frequency,systemMessage=sysMsg,character_id=character_id,personality=personality)
+    personality = personality if personality else AI_Personality.Balanced
+    await _AICommands(ctx,prompt,model,temp=randomness,presence=presence,frequency=frequency,systemMessage=sysMsg,personality=personality)
 
-async def converseCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomness=0.7,presence=0.6,frequency=0.8,character_id=None):
+async def converseCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomness=0.7,presence=0.6,frequency=0.8):
     sysMsg = None
     if personality == "Random":
         personality = random.choice(randomPool)
@@ -441,7 +400,7 @@ async def converseCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomnes
     elif personality:
         personality = AI_Personality[personality.capitalize()]
         sysMsg = sysMsgs[personality]
-    await _AICommands(ctx,prompt,model,temp=randomness,presence=presence,frequency=frequency,systemMessage=sysMsg,character_id=character_id,personality=personality,threaded=True)
+    await _AICommands(ctx,prompt,model,temp=randomness,presence=presence,frequency=frequency,systemMessage=sysMsg,personality=personality,threaded=True)
 
 async def synthesisCMD(ctx:discord.Interaction,prompt:str,model:str,multilingual:bool=False):
     chars = len(prompt)
@@ -571,9 +530,9 @@ async def creditsCMD(ctx:discord.Interaction):
     embed = discord.Embed(title="Credits",description="""
                 Credits are a system used to prevent me from being bankrupted.
                 AI commands cost credits, which are deducted from your account if the prompt is successful.
-                Images are generally more expensive. Variations cost $0.0200 per image. Upscaling images does NOT cost credits, as upscaling uses a free API.
+                Images are generally more expensive. Variations cost $0.0200 per image.
                 
-                You can use credits with the </ask gpt:1095068823759093831>, </ask babbage:1095068823759093831> and </imagine:1084189053475373186> commands.
+                You can use credits with the </ask gpt:1095068823759093831> and </imagine:1084189053475373186> commands.
 
                 </speech_synthesis:1107238771595948043> has a daily character limit of 250.
                 Characters only apply to the </speech_synthesis:1107238771595948043> command.

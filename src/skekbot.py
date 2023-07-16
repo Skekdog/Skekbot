@@ -30,28 +30,9 @@ openai.api_key = os.environ.get("TOKEN_OPENAI")
 current_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(current_dir)
 
-cIDs = {
-    "Shrek": "eX2BOqEshHs_G4TOisfotuDRi5nNt6fVP9DHrxk8A04",
-    "Margaret Thatcher": "_zTwmoG1MDFcLxB-v6bcrqQPpN8DnXknPPDj3yWy4MY",
-    "Joe Biden": "dSo0so5PT_NJXK_QgWOr_V8Gz461c6n-BQdRvS1qjhc",
-    "Donald Trump": "BAatpD6zHNv9j4_b7f-47bfDNjWYKNlCRPT0yXxqOhQ",
-    "Obama": "4oN2qlGnBIheSXosJEYyy148-GRr6L5tOmUOPC9Zggo",
-    "Joseph Stalin": "zQPkBj9Arxmsq0P6ENO1JCyz5A8_kh7izZYjQfmoVx0",
-    "Barry": "LsejHKO81UHXi1kB0Fs6iwS5SOV7NnL4vugvjtLdJXk",
-    "Senator Armstrong": "BEnOzGNydJ73zgv6FtauylH8RZIxVhdDONGGeSSIQRw",
-    "God": "pZdRSfgxtc6l-KlrbWkAp5b9djOmP3L3NpN45AF3xgI",
-    "Rasputin": "TgvuoP8-n60LCIH644oe-G56zKDpPKXHtGEFnhN7V10",
-    "Elizabeth II": "4YauQqfIaIQfYfg0EqL7K67T6u2RK6xAo7d5QTcVyYg",
-    "Boris Johnson": "vJLaNMpOGtMSy8huxOAAuLapCP_jdU98oMvCbfB603o",
-    "Elon Musk": "6HhWfeDjetnxESEcThlBQtEUo0O8YHcXyHqCgN7b2hY",
-    "Mark Zuckerberg": "_C4S3uthPA8ZSH5LrWM9JNVdtlZq-iqhniamLtixQy8",
-    "Ronald McDonald": "r9Mfy4bTaipFAZo_fkTYG6BSi4Z-jsarEzd4hjUjr3g",
-    "Spongebob": "JCcce8JGM3fL2aVARXjng7ADYTxo45gwj3XAROiuxnE",
-}
-
 server1 = 920370076035739699
 server2 = 1051204758842658916
-isTest = True
+isTest = False
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -169,63 +150,7 @@ async def on_message(msg:Message):
 
     strip = con.strip()
     if strip == "what if" or strip == "but what if":
-        prevMsg = ""
-        if strip == "but what if":
-            for mesg in [i async for i in chan.history()]:
-                if mesg.content.lower().strip() != "but what if":
-                    if mesg.author.id == skekbotID or mesg.author.id == skestbotID:
-                        if msg.embeds:
-                            if mesg.embeds[0]:
-                                prevMsg = mesg.embeds[0].title[3:97]
-                            else:
-                                prevMsg = mesg.content[:100]
-                        else:
-                            prevMsg = mesg.content[:100]
-                    else:
-                        prevMsg = mesg.content[:100]
-                    for i in mesg.mentions:
-                        prevMsg = prevMsg.replace(f"<@{i.id}>",i.display_name)
-                    break
-        scenario = generate()
-        scen = scenario
-        if prevMsg != "":
-            scen = prevMsg+" but then "+scenario[0].lower()+scenario[1:]
-        newMsg = await chan.send(content="Generating a scenario...",reference=msg,mention_author=False)
-        response = None
-        cost = 0
-
-        embed = discord.Embed(colour=discord.Colour.red(),title=scen[0].upper()+scen[1:250]+("..." if scen[:250] != scen else ""))
-        try:
-            random.shuffle(userPrompts)
-            response = await asyncio.to_thread(openai.ChatCompletion.create,
-                model="gpt-3.5-turbo",
-                temperature=1,
-                max_tokens=384,
-                top_p=1,
-                frequency_penalty=0,
-                presence_penalty=0,
-                user="1723",
-
-                messages = [
-                    {"role":"system","content":generatePrompt,
-                    "role":"user","content":scen+userPrompts[0]
-                    }
-                ]
-            )
-            embed.colour = discord.Colour.blue()
-            cost = getCost(AI_API.Chat,response.usage.total_tokens)
-            response = "```"+response.choices[0].message["content"]+"```"
-
-        except BaseException as err:
-            response = "An unknown error occurred whilst generating this scenario. Try using some other OpenAI commands, such as </ask gpt:1095068823759093831>, or try again later. \n\nError: "+str(err)
-
-        content = "Generated the tale of the time when "+scen
-        if len(response) < 200:
-            content = "This scenario probably failed to generate."
-            embed.colour = discord.Colour.red()
-        embed.description = response
-        embed.add_field(name="This cost Skekbot ${0:.4f}.".format(cost),value="But you got it for free.")
-        await newMsg.edit(content=content,embed=embed)
+        await msg.reply(content="Scenarios are temporarily disabled. Try again later.",mention_author=False)
 
     if chan.type == ChannelType.public_thread:
         if chan.name.find(" | ") > -1:
@@ -381,14 +306,6 @@ async def lucky(ctx):
     await luckyCMD(ctx)
 
 
-@tree.command(name="ask_lucky",description="Ask Lucky AI. Does not cost credits.",guilds=[Object(server1)])
-@cooldown(rate=1,per=1)
-@describe(prompt="Prompt to provide Lucky.")
-async def ask_lucky(ctx:Interaction,prompt:str):
-    await ctx.response.defer(thinking=True,ephemeral=False)
-    await askCMD(ctx,prompt,AI_API.Lucky)
-
-
 @tree.command(name="speech_synthesis",description="Use ElevenLabs to synthesise speech. Max of 250 characters per day.")
 @cooldown(rate=1,per=15)
 @describe(prompt="Prompt to synthesise speech out of.",model="Voice model to use.",multilingual="Use the multilingual model.")
@@ -488,7 +405,7 @@ tree.add_command(Converse())
 
 class Ask(Group):
     
-    @command(name="gpt",description="Ask OpenAI's ChatGPT Chat model. Good all round, but more expensive.")
+    @command(name="gpt",description="Ask OpenAI's ChatGPT Chat model. Good all round.")
     @cooldown(rate=1,per=3)
     @describe(prompt="Prompt to provide the AI.",personality="The personality of the AI.",
               temperature="How deterministic the response will be.",presence_penalty="Penalty to apply to the AI for not starting new topics.",
@@ -509,28 +426,6 @@ class Ask(Group):
         except discord.errors.NotFound:
             return
         await askCMD(ctx,prompt,AI_API.Chat,personality=personality,randomness=temperature,presence=presence_penalty,frequency=frequency_penalty)
-   
-    @command(name="character_ai",description="Ask a character on CharacterAI. Does not cost credits.")
-    @cooldown(rate=1,per=1)
-    @describe(prompt="Prompt to provide the AI.",character_id="ID of the character you want to ask. This is found in the url of a character: chat?char=ID.")
-    async def ask_character_ai(self,ctx,prompt:str,character_id:str):
-        await ctx.response.defer(thinking=True,ephemeral=False)
-        try:
-            await askCMD(ctx,prompt,AI_API.CharacterAI,character_id=character_id)
-        except discord.app_commands.errors.CommandInvokeError as err:
-            await ctx.followup.send("An error occurred.")
-
-    cAIGroup = Group(name="character_ai_",description="Ask a character on CharacterAI. Does not cost credits.")
-    @cAIGroup.command(name="preset",description="Ask a preset character.")
-    @describe(prompt="Prompt to provide the AI.",character="Character preset to use.")
-    @cooldown(rate=1,per=1)
-    @choices(character=[Choice(name=i[0],value=i[1]) for i in cIDs.items()])
-    async def ask_character_ai_presets(self,ctx,prompt:str,character:str):
-        await ctx.response.defer(thinking=True,ephemeral=False)
-        try:
-            await askCMD(ctx,prompt,AI_API.CharacterAI,character_id=character)
-        except discord.app_commands.errors.CommandInvokeError as err:
-            await ctx.followup.send("An error occurred.")
 tree.add_command(Ask())
 
 class Poll(Group):

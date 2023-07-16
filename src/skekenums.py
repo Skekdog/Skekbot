@@ -1,7 +1,3 @@
-import functools
-import asyncio
-import typing
-
 from enum import Enum
 
 class AI_Personality(Enum):
@@ -22,9 +18,6 @@ class AI_API(Enum):
     Image = "DALL-E 2"
     Variation = "Variations"
     Chat = "gpt-3.5-turbo"
-    Completion = "text-babbage-001"
-    Lucky = "Lucky"
-    CharacterAI = "CharacterAI"
 
     def __str__(self):
         return self.value
@@ -63,11 +56,3 @@ class SpeechModel(Enum):
 class ChatFilter(Enum):
     "Enums 30-40."
     Pigeon = 30,
-
-
-
-def to_thread(func: typing.Callable) -> typing.Coroutine:
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        return await asyncio.to_thread(func, *args, **kwargs)
-    return wrapper
