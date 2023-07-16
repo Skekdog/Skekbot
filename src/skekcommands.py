@@ -14,13 +14,12 @@ import asyncio
 import io,base64,os,requests
 import random,time,uuid,emoji
 
-import openai
-# import openai,elevenlabs
+import openai,elevenlabs
 
 skestbotID = 1111975854839435376
 skekbotID = 1054474727642628136
 
-#elevenlabs.set_api_key(os.environ.get("TOKEN_ELEVENLABS"))
+elevenlabs.set_api_key(os.environ.get("TOKEN_ELEVENLABS"))
 openai.api_key = os.environ.get("TOKEN_OPENAI")
 deepLToken = os.environ.get("TOKEN_DEEPL")
 
@@ -450,9 +449,6 @@ async def converseCMD(ctx,prompt:str,model:AI_API,personality:str=None,randomnes
     await _AICommands(ctx,prompt,model,temp=randomness,presence=presence,frequency=frequency,systemMessage=sysMsg,character_id=character_id,personality=personality,threaded=True)
 
 async def synthesisCMD(ctx:discord.Interaction,prompt:str,model:str,multilingual:bool=False):
-    await ctx.followup.send("This command is causing issues, and will be disabled for the time being.")
-    return
-
     chars = len(prompt)
     usage = int(readFromKey(ud,ctx.user.id,1,default=0)[0])
     userDailySynthesis = dailySynthesis+float(readFromKey(up,ctx.user.id,1,default=0)[0])

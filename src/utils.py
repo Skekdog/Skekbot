@@ -53,11 +53,12 @@ def readFromKey(file:str,key:str,index:int|list[int]|None=None,default:Any=None)
         lines = f.readlines()
         f.seek(0)
         for line in lines:
-            vals = line.split("=")[1].split(";")
+            kv = line.split("=")
+            if len(kv)<2: continue
+            vals = kv[1].split(";")
             if line.startswith("__lastrefresh"):
                 newTime = evaluateRefresh(line)
-                if not newTime:
-                    continue
+                if not newTime: continue
                 newLines=["__lastrefresh="+newTime+";"+vals[1]]
                 f.truncate(0)
                 f.writelines(newLines)

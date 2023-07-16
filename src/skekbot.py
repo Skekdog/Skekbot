@@ -33,7 +33,6 @@ os.chdir(current_dir)
 cIDs = {
     "Shrek": "eX2BOqEshHs_G4TOisfotuDRi5nNt6fVP9DHrxk8A04",
     "Margaret Thatcher": "_zTwmoG1MDFcLxB-v6bcrqQPpN8DnXknPPDj3yWy4MY",
-    "Boeing 747": "oUipEQvbc9bV3iv_ZLNgTjJYv0hHs4Nd2gklZtzJ9yw",
     "Joe Biden": "dSo0so5PT_NJXK_QgWOr_V8Gz461c6n-BQdRvS1qjhc",
     "Donald Trump": "BAatpD6zHNv9j4_b7f-47bfDNjWYKNlCRPT0yXxqOhQ",
     "Obama": "4oN2qlGnBIheSXosJEYyy148-GRr6L5tOmUOPC9Zggo",
@@ -41,25 +40,18 @@ cIDs = {
     "Barry": "LsejHKO81UHXi1kB0Fs6iwS5SOV7NnL4vugvjtLdJXk",
     "Senator Armstrong": "BEnOzGNydJ73zgv6FtauylH8RZIxVhdDONGGeSSIQRw",
     "God": "pZdRSfgxtc6l-KlrbWkAp5b9djOmP3L3NpN45AF3xgI",
-    "Putin": "ycbgWJyXmcVFZc0vyF3AaI1tLWLHTVhbTZFENC9Ie6w",
     "Rasputin": "TgvuoP8-n60LCIH644oe-G56zKDpPKXHtGEFnhN7V10",
     "Elizabeth II": "4YauQqfIaIQfYfg0EqL7K67T6u2RK6xAo7d5QTcVyYg",
-    "Liz Truss": "B4lYjyGEsLuAMQB-4tiB8b-SSN609r1h-R0dJNhc79A",
     "Boris Johnson": "vJLaNMpOGtMSy8huxOAAuLapCP_jdU98oMvCbfB603o",
-    "Terraria Guide": "yXldD-2l-vmlBC4Njc9PMrNwxrK1T5QxcoxX7o5zuWY",
-    "Agent 47": "kqBCsNft0PU2IbrFQ9r4InAQWBh7Y5yLhxR8z-B9g-Y",
     "Elon Musk": "6HhWfeDjetnxESEcThlBQtEUo0O8YHcXyHqCgN7b2hY",
     "Mark Zuckerberg": "_C4S3uthPA8ZSH5LrWM9JNVdtlZq-iqhniamLtixQy8",
-    "Teddy Roosevelt": "HT6weIr7pzBQ0dGRmzML0laf1ZrJXk_U2vTAxEEWz9c",
-    "Abraham Lincoln": "sXiTYQw119NhyPp7vBTT0MuQDssS7VKOcPEW2f6emBc",
     "Ronald McDonald": "r9Mfy4bTaipFAZo_fkTYG6BSi4Z-jsarEzd4hjUjr3g",
     "Spongebob": "JCcce8JGM3fL2aVARXjng7ADYTxo45gwj3XAROiuxnE",
-    "Franklin Framed": "iHMpcc8cs5tF4dCY1-TtqzbiL67xRS6Y6S1IbPQgNrU"
 }
 
 server1 = 920370076035739699
 server2 = 1051204758842658916
-isTest = true
+isTest = True
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -74,24 +66,49 @@ tree = discord.app_commands.CommandTree(client)
 
 @tree.error
 async def on_app_command_error(ctx:Interaction,err:AppCommandError):
-    print(err)
+    tb = err.__cause__.__traceback__.tb_next
+    tbStr = "\nCOMMAND EXCEPTION:\n"
+    while True:
+        tbStr += f"{tb.tb_frame.f_code.co_filename}, Line {tb.tb_frame.f_lineno}\n"
+        tb = tb.tb_next
+        if not tb: break
+    print(f"{tbStr}\n{str(err)}\n")
+
+    msg = ""
     match err.__class__.__name__:
         case "CommandOnCooldown":
-            await ctx.response.send_message(f"You must wait {str(round(err.retry_after,2))}s before using this command again.",ephemeral=True)
+            msg = f"You must wait {str(round(err.retry_after,2))}s before using this command again."
         case "TransformerError":
-            await ctx.response.send_message(f"Failed to convert {err.value} to {str(err.type)}",ephemeral=True)
+            msg = f"Failed to convert {err.value} to {str(err.type)}"
         case "NoPrivateMessage":
-            await ctx.response.send_message(f"You may not run this command in a DM.")
+            msg = "You may not run this command in a DM."
         case "MissingRole":
-            await ctx.response.send_message(f"You are missing the {err.missing_role} role to use this command.",ephemeral=True)
+            msg = f"You are missing the {err.missing_role} role to use this command."
         case "MissingAnyRole":
-            await ctx.response.send_message(f"You are missing one or more of the required roles to use this command: {str(err.missing_roles)}",ephemeral=True)
+            msg = f"You are missing one or more of the required roles to use this command: {str(err.missing_roles)}"
         case "MissingPermissions":
-            await ctx.response.send_message(f"You are missing the required permissions to use this command. ({str(err.missing_permissions)})",ephemeral=True)
+            msg = f"You are missing the required permissions to use this command. ({str(err.missing_permissions)})"
         case "BotMissingPermissions":
-            await ctx.response.send_message(f"Skekbot does not have the required permissions ({str(err.missing_permissions)}) to execute this command, please contact the server owner.",ephemeral=True)
+            msg = f"Skekbot does not have the required permissions ({str(err.missing_permissions)}) to execute this command, please contact the server owner."
+        case "InteractionResponded":
+            msg = "An internal error occured. Try again later."
+        case "CommandInvokeError":
+            msg = f"An internal error occured. Try again later.\nError: {str(err.original)}"
         case _:
-            await ctx.response.send_message(f"An unknown error occcured when executing this command. Try again later.",ephemeral=True)
+            msg = f"An unknown error occcured when executing this command. Try again later."
+
+    embed = discord.Embed(colour=discord.Colour.red(),title="Command failed.",description=msg)
+
+    try:
+        await ctx.response.send_message(embed=embed,ephemeral=True)
+    except discord.errors.InteractionResponded:
+        try:
+            await ctx.followup.send(embed=embed)
+        except:
+            try:
+                await ctx.edit_original_response(embed=embed)
+            except:
+                print("Failed to let the user know about the error after trying like one million times, too bad")
 
 @client.event
 async def on_ready():
@@ -508,7 +525,9 @@ async def help(ctx,command:str|None):
 
 
 def main():
-    client.run(os.environ.get("TOKEN_SKESTBOT" if isTest else "TOKEN_SKEKBOT"))
+    tokenS = "TOKEN_SKESTBOT" if isTest else "TOKEN_SKEKBOT"
+    token = os.environ.get(tokenS)
+    client.run(token)
 
 if __name__ == "__main__":
     main()

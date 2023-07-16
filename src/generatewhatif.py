@@ -260,7 +260,5 @@ def getTerm(id:str) -> str:
         
 
 def generate():
-
+    return "eh"
     return getTerm("O")
-
-print(generate())
