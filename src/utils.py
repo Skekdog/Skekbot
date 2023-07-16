@@ -168,7 +168,7 @@ def checkCredits(userID:int,model:AI_API,resolution=Resolution.Low,amount=1) -> 
 
     if model in [AI_API.Image,AI_API.Variation]:
         return ((userDailyBudget - spends >= (prices[resolution]*amount)),(userDailyBudget - spends))
-    elif model in [AI_API.Chat,AI_API.Completion]:
+    elif model in [AI_API.Chat]:
         return (((userDailyBudget - spends)*1000/prices[model]),(userDailyBudget - spends)) if ((userDailyBudget - spends)*1000/prices[model] > 0) else (False,(userDailyBudget - spends))
     
 
