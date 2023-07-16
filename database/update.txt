@@ -1,4 +1,4 @@
-announced=False
+announced=True
 
 [Skekbot Announcement]
-Sometimes, I dream about cheese.
+This is a test! Wow.

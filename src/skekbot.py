@@ -51,7 +51,7 @@ cIDs = {
 
 server1 = 920370076035739699
 server2 = 1051204758842658916
-isTest = False
+isTest = True
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -554,11 +554,8 @@ tree.add_command(Poll())
 async def help(ctx,command:str|None):
     await helpCMD(ctx,command)
 
-
 def main():
-    tokenS = "TOKEN_SKESTBOT" if isTest else "TOKEN_SKEKBOT"
-    token = os.environ.get(tokenS)
-    client.run(token)
+    client.run(os.environ.get("TOKEN_SKESTBOT" if isTest else "TOKEN_SKEKBOT"))
 
 if __name__ == "__main__":
     main()
