@@ -18,7 +18,6 @@ prices = {
     Resolution.High:0.02,
 
     AI_API.Chat:0.002,
-    AI_API.Completion:0.0005,
 }
 
 db = os.path.dirname(os.path.abspath(__file__))+"/../database"
