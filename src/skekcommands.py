@@ -119,11 +119,6 @@ async def _AICommands(ctx:discord.Interaction|None,prompt:str,AI:AI_API,
                       threaded=False,userId=None,channel:discord.TextChannel=None,userName=None,msg:discord.Message=None,editFunc:callable=None) -> None:
     "Run default checks and operations before running an OpenAI command."
 
-    # global CAIClientStarted
-    # if not CAIClientStarted:
-    #     await CAIClient.start()
-    #     CAIClientStarted = True
-
     msg = msg if msg is not None else ctx.message
     userName = userName if userName else ctx.user.name
     id = userId if userId else ctx.user.id

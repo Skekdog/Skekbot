@@ -65,8 +65,8 @@ def readFromKey(file:str,key:str,index:int|list[int]|None=None,default:Any=None)
                 return default
             if line.startswith(key):
                 if not index:
-                    return vals
-                return [z for k,z in enumerate(vals) if k in index]
+                    return [v.strip() for v in vals]
+                return [z.strip() if z != "" else default[0] for k,z in enumerate(vals) if k in index]
         f.close()
     return default
 
@@ -90,9 +90,7 @@ def writeToKey(file:str,key:str,indexVals:dict[int,str]) -> None:
         lineNum = None
         maxIndex = 0
         for i,line in enumerate(lines):
-            if not line.startswith(key):
-                continue
-
+            if not line.startswith(key): continue
             vals = line.split("=")[1].split(";")
             originalVals = {}
             for k,v in enumerate(vals):
@@ -117,9 +115,8 @@ def writeToKey(file:str,key:str,indexVals:dict[int,str]) -> None:
             try: newStr += str(indexVals[k])
             except KeyError: pass
             newStr += ";" if k < len(splt)-1 else ""
-
         
-        if lineNum: newLines[lineNum] = key+"="+newStr+"\n"
+        if lineNum is not None: newLines[lineNum] = (key+"="+newStr).strip()+"\n"
         else:
             try: newLines[-1] = newLines[-1]+"\n"
             except IndexError: pass

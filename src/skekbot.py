@@ -66,7 +66,8 @@ tree = discord.app_commands.CommandTree(client)
 
 @tree.error
 async def on_app_command_error(ctx:Interaction,err:AppCommandError):
-    tb = err.__cause__.__traceback__.tb_next
+    cause = err.__cause__
+    tb = cause.__traceback__.tb_next if cause else err.__traceback__.tb_next
     tbStr = "\nCOMMAND EXCEPTION:\n"
     while True:
         tbStr += f"{tb.tb_frame.f_code.co_filename}, Line {tb.tb_frame.f_lineno}\n"
@@ -116,7 +117,16 @@ async def on_ready():
     if not isTest:
         await tree.sync(guild=Object(server1))
         await tree.sync(guild=Object(933989654204649482))
-    print("Readied!")
+    while True:
+        await asyncio.sleep(5)
+        if not eval(readFromKey("update.txt","announced",0,False)[0]):
+            writeToKey("update.txt","announced",{0:"True"})
+            msg = ""
+            with open("update.txt","r") as f:
+                msg = f.read()[15:]
+                f.close()
+            for i in readFromKey("serversettings.txt","announcementchannels"):
+                if i != "": await (await client.fetch_channel(int(i))).send(content=msg)
 
 generatePrompt = "Creative no matter how illogical the prompt"
 userPromptTragedy = " Remember this all just for fun sometimes the story should have a tragic end the story should be only 3 paragraphs start in middle of action"
@@ -415,6 +425,27 @@ async def rps(ctx,opponent:discord.Member):
 async def translate(ctx:Interaction,suffocating_letters:Range[str,1,900],new_language:str,new_language_2:str=None):
     await ctx.response.defer(thinking=True,ephemeral=False)
     await translateCMD(ctx,suffocating_letters,target_lang=new_language_2 if new_language_2 else new_language)
+
+@tree.command(name="setup_bot_announcements",description="Sets this channel as a channel to send Skekbot announcements to.")
+@cooldown(rate=1,per=0.1)
+async def setup_bot_announcements(ctx:Interaction):
+    if ctx.user.guild_permissions.manage_channels:
+        cid = str(ctx.channel_id)
+        curC = readFromKey("serversettings.txt","announcementchannels")
+        if cid in curC:
+           deleteKey("serversettings.txt","announcementchannels")
+           curC.remove(cid)
+           newVals = {}
+           for i,v in enumerate(curC):
+               newVals[i] = v
+           writeToKey("serversettings.txt","announcementchannels",newVals)
+           await ctx.response.send_message("Successfully stopped this channel from recieving Skekbot announcements.")
+        else: 
+            n = len(curC)
+            writeToKey("serversettings.txt","announcementchannels",{n:str(ctx.channel_id)})
+            await ctx.response.send_message("Successfully setup this channel to recieve Skekbot announcements.")
+        return
+    await ctx.response.send_message("You require the `manage_channels` permission to use this command.",ephemeral=True)
 
 @tree.context_menu(name="Reaction Roles")
 @cooldown(rate=1,per=0.1)
