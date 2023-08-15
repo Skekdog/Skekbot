@@ -1,7 +1,4 @@
-announced=True
+announced=False
 
-[Skekbot Announcement]
-Removed OpenAI's Babbage model (completion) in response to it being deprecated and also bad.
-Removed Character AI commands until a better solution is found.
-
-Also bot is going offline for about an hour have fun.
+**[Downtime]**
+Skekbot will be down for approx. three days.
