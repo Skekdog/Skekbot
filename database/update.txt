@@ -1,4 +1,0 @@
-announced=False
-
-**[Downtime]**
-Skekbot will be down for approx. three days.

@@ -43,7 +43,7 @@ Substitutions:
 
 vowels = ["a","e","i","o","u"] # // Presumably these won't change
 descriptors = [
-    # // Opinion
+    # // Opinion - 0
     [
         "beautiful","pretty","nice","unpleasant","wonderful","brilliant","excellent","lovely","delightful",
         "disgusting","nasty","ugly","horrible","terrible","abysmal",
@@ -66,27 +66,27 @@ descriptors = [
         "artistic","premium","hot","royal","accidental","addictive","innocent","aggressive","adorable","horny","brave","mindless",
         "stupid","rude","insensitive","desensitised"
     ],
-    # // Condition
+    # // Condition - 1
     [
         "rotten","dirty","uncooked","stale","mouldy","infected","destroyed","damaged","filthy","clean","pristine",
         "shiny","homemade","contagious","cancerous","intoxicated","drunk","inebriated","molten","burning","swollen",
         "irradiated","radioactive","rusty","wet","expired","accelerating","empty",
     ],
-    # // Size
+    # // Size - 2
     [
-        "massive","large","huge","big","average-sized","small","tiny","miniscule","microscopic","puny"
+        "massive","large","huge","big","average-sized","small","tiny","miniscule","microscopic","puny",
         "obese","plus-sized","overweight","healthy-weight","underweight","emaciated","chunky","fat"
     ],
-    # // Age
+    # // Age - 3
     [
         "pre-historic","neolithic","ancient","old","aged","new","brand new","futuristic","decrepit","modern","contemporary",
         "medieval","classical","renaissance","cold war era","from the {T}s","youthful","young","recent","outdated",
     ],
-    # // Shape
+    # // Shape - 4
     [
         "round","spherical","curved","square","uneven","rectangular","triangular","polygonal","hexagonal","flat","rough","bumpy"
     ],
-    # // Colour
+    # // Colour - 5
     # // ZWSP or space indicates that this colour should not be modified (with light or dark)
     [
         "light​","dark​","white​","black​","grey","red","green","blue","orange","yellow","brown","purple","gold","pink","cyan",
@@ -94,7 +94,7 @@ descriptors = [
         "brick red","burgundy​","copper orange","emerald green","golden brown","granite grey","hot pink","magenta​","lemon yellow",
         "lime​","midnight blue","midnight green","royal blue","silver​","beige​","invisible​"
     ],
-    # // Origin
+    # // Origin - 6
     [
         "Canadian","American","Mexican","Colombian","Cuban","Brazilian","Argentinian",
 
@@ -110,11 +110,11 @@ descriptors = [
 
         "American","European","Asian","African","Antartican",
     ],
-    # // Material
+    # // Material - 7
     [
         "rubber","leather","silk","fabric","cotton","wool","plastic","wooden","steel","metal","synthetic","fur","concrete","icy"
     ],
-    # // Purpose
+    # // Purpose - 8
     [
         "explosive","distracting","confusing","dangerous","deadly","poisonous","toxic","electrifying","terrifying","genocidal","curing",
         "manipulating","fishing","intoxicating",
@@ -131,7 +131,7 @@ timePeriods = [
     "dawn of humanity","far future",
 ]
 
-# // ZWSP indicates this amount should not be used for modificactions. Amounts ending in dash may have another non-dash number appended.
+# // ZWSP indicates this amount should not be used for modifications. Amounts ending in dash may have another non-dash number appended.
 # // Amounts ending in underscore will be appended with and + number (hundred and fifty-six).
 amounts = [
     "no​","infinite​",
@@ -147,13 +147,6 @@ adjAdverbs = [
     "ridiculously","brutally","excessively",
 ]
 
-# // {0} is substituted for any noun. If not present, a noun is appended to the end.
-# // {1} is substituted for an amount.
-# // {2} is substituted for a different action. {0} will be substituted with nothing in this different action.
-# // {3} is substituted for a different action. {0} will be substituted as normal in this different action.
-# // {4} is substituted for a noun or an adjective.
-# // {5} is substituted for an adjective.
-# // {6} is substituted for a noun.
 actions = [
     "searched for Obama's last name with",
     "planted an explosive to eliminate",
@@ -167,19 +160,19 @@ actions = [
     "held {S}hostage","negotiated","took {S}captive","paid the {C} dollar ransom for","refused to pay the {C} dollar ransom for",
     "threatened","berated","hurled abuse at","listed all the reasons {S}should die for {C} hours","blackmailed",
     
-    "praised","cheered {S}on","had a laugh with","lived happily ever after with","defended","protected",
+    "praised","cheered{S} on","had a laugh with","lived happily ever after with","defended","protected",
     "saved","rescued","resucitated","cured","revived","reincarnated","gave birth to",
-    "cleared {S}of any suspicion","found {S}innocent","found {S}guilty","thanked",
-    "pleaded with","requested {S}be {N!A}","asked {S}about {S}","pondered on the concept of","considered what to do with","wondered how {0}even existed","discovered {0}was actually {4}",
+    "cleared{S} of any suspicion after hearing about","found{S} innocent thanks to","found{S} guilty mostly because of","thanked",
+    "pleaded with","requested {S}be {N!A}","asked {S} about{S} and their affairs with","pondered on the concept of","considered what to do with","wondered how {0}even existed","discovered {0}was actually {4}",
     "raced","chased","persued","followed","stalked","snooped on","spied on","became a spy for","weaponised",
-    "returned fire against","found fault with","did not understand why {S}had {A}","blundered their next move with","terrorised",
-    "painted a {1} picture of","drew a portrait of","painted the town of {S} red","painted a {1} painting of","sketched","sang a {1} song",
+    "returned fire against","found fault with","did not understand why{S}had {A}","blundered their next move with","terrorised",
+    "painted a {1} picture of","drew a portrait of","painted the town of{S} red for","painted a {1} painting of","sketched","sang a {1} song",
 
-    "framed","harassed","razed","fled from","advertised to","proselytised","rejected","retired","accepted {S}'s offer","assembled","pirated","stole",
-    "hired","fired","said their final prayers to","encouraged","egged on","exported","gave the finger to","took {S}'s finger","infected","confirmed {S}'s death",
-    "found {S}'s body","hid {S}'s body away from {S}","searched for","found a body and accused","found a body with","found the corpse of","denied the death of",
-    "investigated the crime scene with","altered the crime scene","found the corpse and identified it as belonging to","left {S} for dead","stuck a fork in",
-],
+    "framed","harassed","razed","fled from","advertised to","proselytised","rejected","retired","accepted {S}'s offer for","assembled","pirated","stole",
+    "hired","fired","said their final prayers to","encouraged","egged on","exported","gave the finger to","took {S}'s finger in exchange for","infected","confirmed {S}'s death with",
+    "found {S}'s body with","hid {S}'s body away from {S} with","searched for","found a body and accused","found a body with","found the corpse of","denied the death of",
+    "investigated the crime scene with","altered the crime scene","found the corpse and identified it as belonging to","left {S} for dead with","stuck a fork in",
+]
 
 # // Adverbs that modify an action
 actAdverbs = [
@@ -190,8 +183,8 @@ actAdverbs = [
 nouns = [
     # // Subjects
     [
-        "the {1} man","the {1} woman","the {2} President of the {OA} nation","the {2} King of the {OA} Empire","the {1} Queen of the {OA} Empire","the Prime Minister of the {OA} nation" # // Titles
-        "the {1} British Army","the Spanish Inquisition","{1} NATO","the {1} USSR","the {OA} Empire","the {OA} nation","a {1} Jehova's Witness","a {1} British man named Barry, aged 63, single and ready to mingle", # // Things
+        "the{1} man","the{1} woman","the{2} President of the {OA} nation","the{2} King of the{OA} Empire","the{1} Queen of the {OA} Empire","the Prime Minister of the{OA} nation" # // Titles
+        "the{1} British Army","the Spanish Inquisition","{1} NATO","the{1} USSR","the{OA} Empire","the{OA} nation","a{1} Jehova's Witness","a{1} British man named Barry, aged 63, single and ready to mingle", # // Things
         "nobody","everybody","a{1} ICBM",
 
         "{3} Boris Johnson","{3} Joe Biden","{3} Margaret Thatcher","{3} Donald Trump","{3} Barack Obama","{3} Xi Jinping","{3} Kim Jong Un","Genghis Khan","Mao Zedong", # // World leaders
@@ -230,35 +223,115 @@ joiners = [
 {N|A} - Noun or adjective
 {OA} - Origin Adjective"""
 
-def sub(s:str) -> str:
-    print(s)
-    newS,got,get = "","",False
-    for i,v in enumerate(s):
-        if v == "{":
-            get = True
-            newS += s[:i]
-        elif v == "}":
-            get = False
-            print(got)
-            newS += getTerm(got)
-        elif get: got += v
-        else: newS += v
-    return newS
+def sub(s:str,block=False) -> str:
+    "Returns the string with all substitutions made."
+    new = ""
+    while True:
+        new = s.replace("{O}","" if block else getTerm("O",block=True),1)
+        new.replace("{S}","" if block else getTerm("S",block=True),1)
+        new.replace("{N}","" if block else getTerm("N",block=True),1)
+        new.replace("{T}","" if block else getTerm("T",block=True),1)
+        new.replace("{A}","" if block else getTerm("A",block=True),1)
+        new.replace("{C}","" if block else getTerm("C",block=True),1)
+        new.replace("{N!A}","" if block else getTerm("N!A",block=True),1)
+        new.replace("{N|A}","" if block else getTerm("N|A",block=True),1)
+        new.replace("{OA}","" if block else getTerm("OA",block=True),1)
+        if s == new: break # // i.e, the string did not change after all the replacements in this loop
+        s = new
 
-def getTerm(id:str) -> str:
+    # // Now we need to sub adjectives, which can have any integer as an ID. Because I'm fancy.
+    det,st = "",False
+    ls = s
+    for i in ls:
+        # // We need to only collect the number
+        if i == "{": st = True
+        elif st and i != "}": det += i
+        if i == "}":
+            s = s.replace("{"+det+"}","" if block else getTerm(det,block=True),1)
+            det,st = "",False
+
+    return s
+        
+
+def getTerm(id:str,block=False) -> str:
     try:
         id = int(id)
-        random.shuffle(descriptors[0])
-        return " "+sub(descriptors[0][0])
+
+        adjs = [[] for _ in range(9)] # // Create a list with 8 elements for the royal order of adjs. Annoyingly range is exclusive.
+        for _ in range(id):
+            chosen = random.randint(0,8)
+            random.shuffle(descriptors[chosen])
+            adjs[chosen].append(descriptors[chosen][0])
+
+        lng = 0
+        for i in adjs:
+            for _ in i: lng += 1
+
+        s = ""
+        index = 0
+        
+        for i in adjs:
+            for v in i:
+                index += 1
+                if v:
+                    start = ""
+                    if index == 1 and v[0].lower() in vowels: start = "n "
+                    elif index == lng and index != 1: start = " and "
+                    else: start = " "
+
+                    end = ""
+                    if index < (lng - 1): end = ","
+
+                    s += start + v + end
+
+        return sub(s,block)
+        
     except ValueError:
         match id:
             case "O":
                 random.shuffle(nouns[1])
-                s:str = nouns[1][0]
-                print("Subject =",s)
-                return sub(s)
+                s = nouns[1][0]
+                return sub(s,block)
+            case "S":
+                random.shuffle(nouns[0])
+                s = nouns[0][0]
+                return sub(s,block)
+            case "N":
+                chosen = random.randint(0,1)
+                random.shuffle(nouns[chosen])
+                s = nouns[chosen][0]
+                return sub(s,block)
+            case "T":
+                random.shuffle(timePeriods)
+                s = timePeriods[0]
+                return sub(s,block)
+            case "A":
+                random.shuffle(actions)
+                s = actions[0]
+                return sub(s,block)
+            case "C":
+                random.shuffle(amounts)
+                s = amounts[0]
+                return sub(s,block)
+
+            case "N!A":
+                random.shuffle(actions)
+                s = actions[0]
+                return sub(s,block)
+            case "N|A":
+                chosen = nouns[random.randint(0,1)] if random.randint(0,1) == 1 else descriptors[random.randint(0,8)]
+                random.shuffle(chosen)
+                s = chosen[0]
+                return sub(s,block)
+            case "OA":
+                random.shuffle(descriptors[6])
+                s = descriptors[6][0]
+                return sub(s,block)
         
 
 def generate():
-    return "eh"
-    return getTerm("O")
+    s = getTerm("S")+" "+getTerm("A")+" "+getTerm("O")+"."
+    s = s[0].upper()+s[1:]
+    return s
+
+print(generate())
