@@ -28,7 +28,7 @@ Skekbot may use third-party services, such as OpenAI or CharacterAI, for specifi
 
 ## 5. Changes to this Privacy Policy
 
-We may update this Privacy Policy from time to time. We will notify you of any changes by posting an announcement of the update in an announcement channel or through other appropriate means. Your continued use of Skekbot after any modifications indicates your acceptance of these changes. If you are unsure where an announcement channel is, it is recommended that you join the Skekbot discord server at: https://www.discord.gg/[link]
+We may update this Privacy Policy from time to time. We will notify you of any changes by posting an announcement of the update in an announcement channel or through other appropriate means. Your continued use of Skekbot after any modifications indicates your acceptance of these changes. If you are unsure where an announcement channel is, it is recommended that you join the Skekbot discord server at: https://www.discord.gg/fzvzYJCSjz
 
 ## 6. Contact Us
 

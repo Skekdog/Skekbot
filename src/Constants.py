@@ -73,7 +73,7 @@ Thanks for using Skekbot!
 ABOUT_EMBED = SuccessEmbed("About Skekbot",ABOUT_DESCRIPTION)
 ABOUT_EMBED.add_field(name="Copyright Skekdog © 2023",value="Licensed under the GNU General Public License v3.0.\nSee [LICENSE](https://github.com/Skekdog/Skekbot/blob/main/LICENSE) for more info.",inline=True)
 ABOUT_EMBED.add_field(name="Contact",value="If you wish to contact me, either send a DM to @skekdog on Discord or email skekdog@gmail.com.",inline=True)
-ABOUT_EMBED.add_field(name="Data Usage",value="[Privacy Policy](https://www.github.com/Skekdog/Skekbot/blob/main/PRIVACY.md)",inline=True)
+ABOUT_EMBED.add_field(name="Privacy Policy",value="[Privacy Policy](https://www.github.com/Skekdog/Skekbot/blob/main/PRIVACY.md)",inline=True)
 
 # // Flavour triggers
 APOSTROPHES = [BLANK,"'","‘","’","'","'"]
