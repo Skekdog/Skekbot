@@ -1,11 +1,11 @@
-from sqlite3 import connect, Error
-from typing import Literal, List
-from logging import getLogger
-
 from os import chdir
 from pathlib import Path
-from unittest.mock import Base
-chdir(Path(__file__).parent)
+from logging import getLogger
+from typing import Literal
+
+from sqlite3 import connect, Error
+
+chdir(Path(__file__).parent.parent)
 
 logger = getLogger(__name__)
 info, warn, error = logger.info, logger.warn, logger.error

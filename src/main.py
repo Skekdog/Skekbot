@@ -1,19 +1,22 @@
-from datetime import datetime
-from random import randint
+import os
+from pathlib import Path
+from asyncio import create_task, gather, run, CancelledError, InvalidStateError
+from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
+
 from discord import Client, Embed, Intents, Interaction
 from discord.app_commands import CommandTree, Group
 from discord.colour import Colour
 from discord.types.embed import EmbedType
 from discord.utils import _ColourFormatter
 
-from os import environ, chdir
-from pathlib import Path
-from asyncio import create_task, gather, run
-from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
+from datetime import datetime
+from random import randint
+
+from regex import D
 
 from ai_cmds import chatGPT
 
-chdir(Path(__file__).parent)
+os.chdir(Path(__file__).parent.parent)
 
 logger = getLogger("skekbot" if __name__ == "__main__" else __name__)
 info, warn, error = logger.info, logger.warn, logger.error
@@ -25,11 +28,11 @@ _ColourFormatter.LEVEL_COLOURS = [
 ]
 
 class SuccessEmbed(Embed):
-    def __init__(self, title: str | None = None, type: EmbedType = 'rich', url: str | None = None, description: str | None = None, timestamp: datetime | None = None):
+    def __init__(self, title: str | None = None, type: EmbedType = "rich", url: str | None = None, description: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.blue(), title=title, type=type, url=url, description=description, timestamp=timestamp)
 
 class FailEmbed(Embed):
-    def __init__(self, title: str | None = None, type: EmbedType = 'rich', url: str | None = None, description: str | None = None, timestamp: datetime | None = None):
+    def __init__(self, title: str | None = None, type: EmbedType = "rich", url: str | None = None, description: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.red(), title=title, type=type, url=url, description=description, timestamp=timestamp)
 
 streamHandler = StreamHandler()
@@ -45,7 +48,7 @@ basicConfig(
 
 # // Intents
 intents = Intents.none()
-intents.message_content = True # // For What If and dad and some other things
+intents.message_content = True # // For What If and dad and some other things # type: ignore (for some reason, the type-checker hates this?)
 intents.messages = True # // Same thing
 intents.guilds = True # // The docs said it's a good idea to keep this enabled so...
 intents.members = True # // So that we can know people's names
@@ -69,15 +72,24 @@ askTree = Group(name="ask", description="Chat with AI models.")
 async def ask_gpt(ctx: Interaction, prompt: str):
     create_task(ctx.response.defer(thinking=True))
 
-    res = create_task(ctx.followup.send(embed=SuccessEmbed("Generating response...", description=""), wait=True)).result
-    async def update():
+    embed = SuccessEmbed("Generating response...", description="")
+    msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
-
-    create_task(chatGPT(ctx.user.id, prompt, update))
+    async def update(msg, failed):
+        try:
+            if failed:
+                await msgTask
+                return await msgTask.result().edit(embed=FailEmbed("Generation failed.", description=msg))
+            embed.description = msg
+            await msgTask.result().edit(embed=embed)
+        except (CancelledError, InvalidStateError): pass
+    
+    await chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
+    
 tree.add_command(askTree)
 
 async def main():
-    clientTask = create_task(client.start(""))
+    clientTask = create_task(client.start(os.environ["SKEKBOT_MAIN_TOKEN"]))
     info("Client starting...")
     await clientTask
 

@@ -1,16 +1,16 @@
-from time import time_ns
-from typing import Any, Literal
+import os
+from asyncio import create_task
+from typing import Callable, Literal, Coroutine, Tuple
+
 from openai import AsyncOpenAI
 from tiktoken import encoding_for_model
+from time import time_ns
+
 from database import get, update
-from os import environ
 
-from asyncio import create_task
+openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
-openAiClient = AsyncOpenAI(api_key="")
-
-
-OPENAI_BUDGET = 0.025
+OPENAI_BUDGET = 0.0001
 MAX_TOKENS = 850 # This was determined by spamming nonsense into tokeniser to get ~4000 characters.
 
 PRICING_CHATINPUT = (0.001 / 1000) # $0.001 per 1k input tokens
@@ -19,7 +19,7 @@ PRICING_IMAGE = (0.016) # $0.016 for a 256x256 image.
 PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
 
 def hasEnoughCredits(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int) -> bool:
-    usage, bonus = get("userdata", id, "(openaicredituse, openaibonuscredits)")
+    usage, bonus = get("userdata", id, "openaicredituse, openaibonuscredits", (0, 0, ))
 
     approxCost = float("inf")
     if intentType == "chat":
@@ -37,7 +37,10 @@ def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmo
     elif intentType == "audio": charge = intentAmount * PRICING_AUDIO
     update("userdata", id, "openaicredituse", get("userdata", id, "openaicredituse", (0,) )[0] + charge)
 
-async def chatGPT(id: int, prompt: str, update: Any):
+async def chatGPT(id: int, prompt: str, update: Callable[[str, int], Coroutine[None, Tuple[str, bool], None]]):
+    inputTokens = len(encoding_for_model("gpt-3.5-turbo").encode(prompt))
+    if not hasEnoughCredits(id, "chat", inputTokens): return await update("You do not have enough credits to run this command.", True)
+
     completion = create_task(openAiClient.chat.completions.create(
         model="gpt-3.5-turbo",
         stream=True,
@@ -47,18 +50,16 @@ async def chatGPT(id: int, prompt: str, update: Any):
         ]
     ))
     
-    inputTokens = len(encoding_for_model("gpt-3.5-turbo").encode(prompt))
-    outputTokens, msg, lastTime = 0, "", time_ns()
+    outputTokens, msg, lastTime = 0, "", time_ns() - 1_000_000_000
     async for chunk in await (completion):
         choice = chunk.choices[0]
         if choice.delta.content:
             outputTokens += 1
             msg += (choice.delta.content or "")
             if (lastTime + 1_000_000_000) > time_ns(): continue
-            print("doing")
             lastTime = time_ns()
-            await update(content=msg)
+            await update(msg, False)
         if choice.finish_reason:
-            await update(content=msg+(choice.delta.content or ""))
+            await update(msg+(choice.delta.content or ""), False)
             return chargeUser(id, "chat", inputTokens, outputTokens)
         

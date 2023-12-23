@@ -1,4 +1,4 @@
 /.vscode
 /src/__pycache__
-/src/database.sqlite
-/src/logfile.pylog
+/database.sqlite
+/logfile.pylog
