@@ -12,8 +12,6 @@ from discord.utils import _ColourFormatter
 from datetime import datetime
 from random import randint
 
-from regex import D
-
 from ai_cmds import chatGPT
 
 os.chdir(Path(__file__).parent.parent)
