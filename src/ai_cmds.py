@@ -2,6 +2,8 @@ import os
 from asyncio import create_task
 from typing import Callable, Literal, Coroutine, Tuple
 
+from io import BytesIO
+from pydub import AudioSegment
 from openai import AsyncOpenAI
 from tiktoken import encoding_for_model
 from time import time_ns
@@ -10,7 +12,7 @@ from database import get, update
 
 openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
-OPENAI_BUDGET = 0.0001
+OPENAI_BUDGET = 0.001
 MAX_TOKENS = 850 # This was determined by spamming nonsense into tokeniser to get ~4000 characters.
 
 PRICING_CHATINPUT = (0.001 / 1000) # $0.001 per 1k input tokens
@@ -29,15 +31,17 @@ def hasEnoughCredits(id: int, intentType: Literal["chat", "image", "audio"], int
 
     return (((OPENAI_BUDGET + bonus) - usage) - approxCost) > 0 # type: ignore
 
-def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int, intentAmount2: int | None):
+def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int, intentAmount2: int | None = None):
     charge = 0
     if intentType == "chat" and intentAmount2:
         charge = (intentAmount * PRICING_CHATINPUT) + (intentAmount2 * PRICING_CHATOUTPUT)
     elif intentType == "image": charge = intentAmount * PRICING_IMAGE
     elif intentType == "audio": charge = intentAmount * PRICING_AUDIO
     update("userdata", id, "openaicredituse", get("userdata", id, "openaicredituse", (0,) )[0] + charge)
+    return charge
 
-async def chatGPT(id: int, prompt: str, update: Callable[[str, int], Coroutine[None, Tuple[str, bool], None]]):
+UpdateCoroutine = Callable[[str, int], Coroutine[None, Tuple[str, bool], None]]
+async def chatGPT(id: int, prompt: str, update: UpdateCoroutine):
     inputTokens = len(encoding_for_model("gpt-3.5-turbo").encode(prompt))
     if not hasEnoughCredits(id, "chat", inputTokens): return await update("You do not have enough credits to run this command.", True)
 
@@ -63,3 +67,25 @@ async def chatGPT(id: int, prompt: str, update: Callable[[str, int], Coroutine[N
             await update(msg+(choice.delta.content or ""), False)
             return chargeUser(id, "chat", inputTokens, outputTokens)
         
+async def imagine(id: int, prompt: str, update: UpdateCoroutine):
+    pass
+
+async def transcribe(id: int, audio: bytes) -> str | None: # streaming is not available for transcriptions
+    data = BytesIO(audio)
+    data.name = "audio.ogg"
+
+    duration = round(len(AudioSegment.from_file(data)) / 1000)
+    if not hasEnoughCredits(id, "audio", duration): return
+
+    print(chargeUser(id, "audio", duration))
+
+    data.seek(0)
+    transcription = await openAiClient.audio.transcriptions.create(
+        model="whisper-1",
+        file=data,
+        prompt="Uh... um... pffpfp...",
+        response_format="text"
+    )
+    data.close()
+
+    return transcription # type: ignore

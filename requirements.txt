@@ -1,4 +1,5 @@
 discord>=2.3.2
+pydub>=0.25.1
 openai>=1.6.0
 tiktoken>=0.5.2
 pillow>=10.1.0

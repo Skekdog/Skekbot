@@ -3,7 +3,8 @@ from pathlib import Path
 from asyncio import create_task, gather, run, CancelledError, InvalidStateError
 from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
 
-from discord import Client, Embed, Intents, Interaction
+from discord import Client, Embed, Intents, Interaction, Thread
+from discord.abc import PrivateChannel, GuildChannel
 from discord.app_commands import CommandTree, Group
 from discord.colour import Colour
 from discord.types.embed import EmbedType
@@ -11,8 +12,10 @@ from discord.utils import _ColourFormatter
 
 from datetime import datetime
 from random import randint
+from urllib.parse import urlparse
 
-from ai_cmds import chatGPT
+from httpx import get
+import ai_cmds
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -26,11 +29,11 @@ _ColourFormatter.LEVEL_COLOURS = [
 ]
 
 class SuccessEmbed(Embed):
-    def __init__(self, title: str | None = None, type: EmbedType = "rich", url: str | None = None, description: str | None = None, timestamp: datetime | None = None):
+    def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.blue(), title=title, type=type, url=url, description=description, timestamp=timestamp)
 
 class FailEmbed(Embed):
-    def __init__(self, title: str | None = None, type: EmbedType = "rich", url: str | None = None, description: str | None = None, timestamp: datetime | None = None):
+    def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.red(), title=title, type=type, url=url, description=description, timestamp=timestamp)
 
 streamHandler = StreamHandler()
@@ -56,6 +59,9 @@ client = Client(intents=intents)
 tree = CommandTree(client)
 command = tree.command
 
+async def return_channel(id: int) -> Thread | GuildChannel | PrivateChannel:
+    return client.get_channel(id) or await client.fetch_channel(id)
+
 @client.event
 async def on_ready():
     syncTask = create_task(tree.sync())
@@ -65,25 +71,60 @@ async def on_ready():
 async def coin_flip(ctx: Interaction):
     await ctx.response.send_message("Heads!" if randint(0,1)==1 else "Tails!")
 
+@command(name="transcribe", description="$$ Transcribes an audio file or voice message.")
+async def transcribe(ctx: Interaction, message_link: str):
+    create_task(ctx.response.defer(thinking=True))
+
+    embed = SuccessEmbed("Generating transcription... This may take a while.")
+    msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
+
+    link_split = urlparse(message_link).path.split("/")
+
+    msg, fail = None, False
+    try: msg = next(x for x in client.cached_messages if x.id == link_split[4])
+    except StopIteration: pass
+    try: msg = msg or await client.get_partial_messageable(int(link_split[3])).fetch_message(int(link_split[4]))
+    except IndexError: fail = True
+
+    if fail or (not msg.attachments) or ((msg.attachments[0].content_type or "").split("/")[0] != "audio"): # type: ignore
+        embed.title = "Transcription failed."
+        embed.description = "Invalid message link."
+        embed.color = Colour.red()
+    else:
+        transcription = await ai_cmds.transcribe(ctx.user.id, get(msg.attachments[0].url).content) # type: ignore
+        if not transcription:
+            embed.title = "Transcription failed."
+            embed.description = "You do not have enough credits."
+        else:
+            embed.description = transcription 
+            embed.title = "Transcription completed."
+
+    await msgTask
+    await msgTask.result().edit(embed=embed)
+
 askTree = Group(name="ask", description="Chat with AI models.")
-@askTree.command(name="gpt", description="Chat with OpenAI's ChatGPT 3.5.")
+@askTree.command(name="gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.") # type: ignore
 async def ask_gpt(ctx: Interaction, prompt: str):
     create_task(ctx.response.defer(thinking=True))
 
-    embed = SuccessEmbed("Generating response...", description="")
+    embed = SuccessEmbed("Generating response...")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
     async def update(msg, failed):
         try:
             if failed:
                 await msgTask
-                return await msgTask.result().edit(embed=FailEmbed("Generation failed.", description=msg))
+                return await msgTask.result().edit(embed=FailEmbed("Generation failed.", msg))
             embed.description = msg
             await msgTask.result().edit(embed=embed)
         except (CancelledError, InvalidStateError): pass
     
-    await chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
-    
+    await ai_cmds.chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
+
+@askTree.command(name="character_ai", description="Ask a character on Character.AI. You can find ID in the URL. This command is unstable.")
+async def ask_character_ai(ctx: Interaction, prompt: str, character_id: str):
+    await ctx.followup.send(embed=FailEmbed("Not implemented", "This command doesn't work yet sorry"))
+
 tree.add_command(askTree)
 
 async def main():

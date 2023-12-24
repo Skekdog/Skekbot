@@ -36,7 +36,7 @@ def get(table: Literal["userdata", "announcementchannels"], id: int, values: str
 
 def update(table: Literal["userdata", "announcementchannels"], id: int, column: str, value: int | float) -> None | Error:
     res = get(table, id)
-    if issubclass(res.__class__, BaseException): error(res); return res # type: ignore
+    if issubclass(res.__class__, Error): error(res); return res # type: ignore
     if not res:
         cursor.execute(f"INSERT INTO {table} (id) VALUES ({id})")
     cursor.execute(f"UPDATE {table} SET {column} = {value} WHERE id = {id}")
