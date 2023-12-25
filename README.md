@@ -6,5 +6,6 @@ To use, the following environment variables should be set:
 - SKEKBOT_MAIN_TOKEN (for the bot itself)
 - SKEKBOT_DEEPL_TOKEN (for translation commands)
 - SKEKBOT_OPENAI_TOKEN (for ChatGPT, Transcription and Imagine)
+- SKEKBOT_CHARACTERAI_TOKEN (for CharacterAI)
 
 [License](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)

@@ -1,7 +1,7 @@
 from os import chdir
 from pathlib import Path
 from logging import getLogger
-from typing import Literal
+from typing import Literal, Tuple, TypeVar
 
 from sqlite3 import connect, Error
 
@@ -25,8 +25,8 @@ cursor.execute("""
 
 db.commit()
 
-
-def get(table: Literal["userdata", "announcementchannels"], id: int, values: str = "*", default: tuple[int | float, ...] = None) -> tuple[int | float, ...]:  # type: ignore
+T = TypeVar("T", bound=Tuple)
+def get(table: Literal["userdata", "announcementchannels"], id: int, default: T, values: str = "*") -> T:  # type: ignore
     try:
         res = cursor.execute(f"SELECT {values} FROM {table} WHERE id = {id}").fetchall()
         return res[0] if len(res) > 0 else default
@@ -35,9 +35,13 @@ def get(table: Literal["userdata", "announcementchannels"], id: int, values: str
         return err # type: ignore
 
 def update(table: Literal["userdata", "announcementchannels"], id: int, column: str, value: int | float) -> None | Error:
-    res = get(table, id)
+    res = get(table, id, (0,))
     if issubclass(res.__class__, Error): error(res); return res # type: ignore
     if not res:
         cursor.execute(f"INSERT INTO {table} (id) VALUES ({id})")
     cursor.execute(f"UPDATE {table} SET {column} = {value} WHERE id = {id}")
+    db.commit()
+
+def sql_execute(command: str):
+    cursor.execute(command)
     db.commit()

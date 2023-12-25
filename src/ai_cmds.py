@@ -12,7 +12,7 @@ from database import get, update
 
 openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
-OPENAI_BUDGET = 0.001
+OPENAI_BUDGET = 0.02
 MAX_TOKENS = 850 # This was determined by spamming nonsense into tokeniser to get ~4000 characters.
 
 PRICING_CHATINPUT = (0.001 / 1000) # $0.001 per 1k input tokens
@@ -21,7 +21,7 @@ PRICING_IMAGE = (0.016) # $0.016 for a 256x256 image.
 PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
 
 def hasEnoughCredits(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int) -> bool:
-    usage, bonus = get("userdata", id, "openaicredituse, openaibonuscredits", (0, 0, ))
+    usage, bonus = get("userdata", id, (0, 0, ), "openaicredituse, openaibonuscredits")
 
     approxCost = float("inf")
     if intentType == "chat":
@@ -37,7 +37,7 @@ def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmo
         charge = (intentAmount * PRICING_CHATINPUT) + (intentAmount2 * PRICING_CHATOUTPUT)
     elif intentType == "image": charge = intentAmount * PRICING_IMAGE
     elif intentType == "audio": charge = intentAmount * PRICING_AUDIO
-    update("userdata", id, "openaicredituse", get("userdata", id, "openaicredituse", (0,) )[0] + charge)
+    update("userdata", id, "openaicredituse", get("userdata", id, (0,), "openaicredituse")[0] + charge)
     return charge
 
 UpdateCoroutine = Callable[[str, int], Coroutine[None, Tuple[str, bool], None]]

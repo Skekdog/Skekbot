@@ -1,20 +1,22 @@
 import os
 from pathlib import Path
-from asyncio import create_task, gather, run, CancelledError, InvalidStateError
+from asyncio import create_task, gather, get_event_loop, run, CancelledError, InvalidStateError
 from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
 
-from discord import Client, Embed, Intents, Interaction, Thread
+from discord import Client, Embed, Intents, Interaction, Object, Thread
 from discord.abc import PrivateChannel, GuildChannel
-from discord.app_commands import CommandTree, Group
+from discord.app_commands import CommandTree, Group, Range, describe
 from discord.colour import Colour
 from discord.types.embed import EmbedType
 from discord.utils import _ColourFormatter
 
+from characterai import PyAsyncCAI
 from datetime import datetime
 from random import randint
 from urllib.parse import urlparse
-
 from httpx import get
+
+from database import sql_execute # Can be used in /execute
 import ai_cmds
 
 os.chdir(Path(__file__).parent.parent)
@@ -55,6 +57,9 @@ intents.guilds = True # // The docs said it's a good idea to keep this enabled s
 intents.members = True # // So that we can know people's names
 intents.guild_reactions = True # // We don't need to know about reactions in DMs, for Reaction Roles
 
+OWNER_ID = 534828861586800676
+
+CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
 client = Client(intents=intents)
 tree = CommandTree(client)
 command = tree.command
@@ -66,13 +71,28 @@ async def return_channel(id: int) -> Thread | GuildChannel | PrivateChannel:
 async def on_ready():
     syncTask = create_task(tree.sync())
     await gather(syncTask)
+    
+@command(description="Allows the bot owner to run various debug commands.")
+@describe(command="the python code to execute. See main.py for available globals.")
+async def execute(ctx: Interaction, command: str):
+    if ctx.user.id == OWNER_ID:
+        await ctx.response.defer(thinking=True)
+
+        returnVal = "Set returnVal to see output."
+        command = f"async def main_exec(_locals): ctx = _locals['ctx']; {command}; _locals['returnVal'] = returnVal"
+        _locals = locals()
+        exec(command, globals(), _locals)
+        await _locals["main_exec"](_locals)
+
+        await ctx.followup.send(_locals["returnVal"])
 
 @command(description="Great for making a bet and immediately regretting it.")
 async def coin_flip(ctx: Interaction):
     await ctx.response.send_message("Heads!" if randint(0,1)==1 else "Tails!")
 
-@command(name="transcribe", description="$$ Transcribes an audio file or voice message.")
-async def transcribe(ctx: Interaction, message_link: str):
+@command(description="$$ Transcribes an audio file or voice message.")
+@describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment in the first position. And it must be <25MB.")
+async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating transcription... This may take a while.")
@@ -103,8 +123,9 @@ async def transcribe(ctx: Interaction, message_link: str):
     await msgTask.result().edit(embed=embed)
 
 askTree = Group(name="ask", description="Chat with AI models.")
-@askTree.command(name="gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.") # type: ignore
-async def ask_gpt(ctx: Interaction, prompt: str):
+@askTree.command(name="gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.")
+@describe(prompt="the prompt to provide, up to 2048 characters.")
+async def ask_gpt(ctx: Interaction, prompt: Range[str, None, 2048]):
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating response...")
@@ -121,9 +142,23 @@ async def ask_gpt(ctx: Interaction, prompt: str):
     
     await ai_cmds.chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
 
-@askTree.command(name="character_ai", description="Ask a character on Character.AI. You can find ID in the URL. This command is unstable.")
-async def ask_character_ai(ctx: Interaction, prompt: str, character_id: str):
-    await ctx.followup.send(embed=FailEmbed("Not implemented", "This command doesn't work yet sorry"))
+@askTree.command(name="character_ai", description="Ask a character on Character.AI. You can find ID in the URL.")
+@describe(prompt="the prompt to provide, up to 1024 characters.",
+          character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
+async def ask_character_ai(ctx: Interaction, prompt: Range[str, None, 1024], character_id: Range[str, 43, 43]):
+    await ctx.response.defer(thinking=True)
+    chat = await CAIClient.chat.get_chat(character_id) # type: ignore
+
+    participants = chat["participants"]
+    tgt = participants[0 if not participants[0]['is_human'] else 1]['user']['username']
+
+    response = await CAIClient.chat.send_message(chat["external_id"], tgt, prompt) # type: ignore
+    char = response["src_char"]
+
+    embed = SuccessEmbed(prompt[:255], response["replies"][0]["text"])
+    embed.set_author(name=char["participant"]["name"], icon_url="https://characterai.io/i/400/static/avatars/"+char["avatar_file_name"]) # type: ignore
+    
+    await ctx.followup.send(embed=embed)
 
 tree.add_command(askTree)
 
