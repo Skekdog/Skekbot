@@ -1,9 +1,10 @@
 import os
+from io import BytesIO
 from pathlib import Path
-from asyncio import create_task, gather, get_event_loop, run, CancelledError, InvalidStateError
+from asyncio import create_task, gather, run, CancelledError, InvalidStateError
 from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
 
-from discord import Client, Embed, Intents, Interaction, Object, Thread
+from discord import ChannelType, Client, Embed, File, Intents, Interaction, Object, Thread
 from discord.abc import PrivateChannel, GuildChannel
 from discord.app_commands import CommandTree, Group, Range, describe
 from discord.colour import Colour
@@ -17,7 +18,7 @@ from urllib.parse import urlparse
 from httpx import get
 
 from database import sql_execute # Can be used in /execute
-import ai_cmds
+import utils
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -100,24 +101,32 @@ async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
 
     link_split = urlparse(message_link).path.split("/")
 
-    msg, fail = None, False
+    msg, linkFail = None, False
     try: msg = next(x for x in client.cached_messages if x.id == link_split[4])
     except StopIteration: pass
     try: msg = msg or await client.get_partial_messageable(int(link_split[3])).fetch_message(int(link_split[4]))
-    except IndexError: fail = True
+    except IndexError: linkFail = True
 
-    if fail or (not msg.attachments) or ((msg.attachments[0].content_type or "").split("/")[0] != "audio"): # type: ignore
+    def fail(reason: str):
         embed.title = "Transcription failed."
-        embed.description = "Invalid message link."
+        embed.description = reason
         embed.color = Colour.red()
+
+    if linkFail or (not msg.attachments) or ((msg.attachments[0].content_type or "").split("/")[0] != "audio"): # type: ignore
+        fail("Invalid message link.")
     else:
-        transcription = await ai_cmds.transcribe(ctx.user.id, get(msg.attachments[0].url).content) # type: ignore
-        if not transcription:
-            embed.title = "Transcription failed."
-            embed.description = "You do not have enough credits."
+        audio = msg.attachments[0] # type: ignore
+        if (audio.size / 1_000_000) > 25:
+            fail("The audio file is too large. Maximum 25MB.")
         else:
-            embed.description = transcription 
-            embed.title = "Transcription completed."
+            data = BytesIO()
+            await audio.save(data)
+            transcription = await utils.transcribe(ctx.user.id, data) 
+            if not transcription:
+                fail("You do not have enough credits.")
+            else:
+                embed.description = transcription
+                embed.title = "Transcription completed."
 
     await msgTask
     await msgTask.result().edit(embed=embed)
@@ -140,26 +149,54 @@ async def ask_gpt(ctx: Interaction, prompt: Range[str, None, 2048]):
             await msgTask.result().edit(embed=embed)
         except (CancelledError, InvalidStateError): pass
     
-    await ai_cmds.chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
+    await utils.chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
 
-@askTree.command(name="character_ai", description="Ask a character on Character.AI. You can find ID in the URL.")
-@describe(prompt="the prompt to provide, up to 1024 characters.",
-          character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
-async def ask_character_ai(ctx: Interaction, prompt: Range[str, None, 1024], character_id: Range[str, 43, 43]):
+CAITree = Group(name="character_ai", description="Chat with character.ai models.")
+@CAITree.command(name="create", description="Create a new chat with a Character. You can find their ID in the URL.")
+@describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
+async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, 43, 43]):
+    channel = ctx.channel
+    if not channel or (channel.type != ChannelType.text):
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
     await ctx.response.defer(thinking=True)
-    chat = await CAIClient.chat.get_chat(character_id) # type: ignore
 
-    participants = chat["participants"]
-    tgt = participants[0 if not participants[0]['is_human'] else 1]['user']['username']
+    chat = await CAIClient.chat.new_chat(character_id) # type: ignore
 
-    response = await CAIClient.chat.send_message(chat["external_id"], tgt, prompt) # type: ignore
+    tgt = chat["participants"][0 if not chat["participants"][0]['is_human'] else 1]['user']['username']
+
+    response = chat["messages"][0]
+    charName, charAvatar, text = response["src__name"], response["src__character__avatar_file_name"], response["text"]
+
+    embed = SuccessEmbed(charName, text)
+    embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar) # type: ignore
+    embed.set_thumbnail(url="attachment://image.png")
+
+    msg = await ctx.followup.send(content="Thread created for conversation!",
+                                  embed=embed,
+                                  file=File(utils.encodeImage((chat["external_id"], tgt.split(":")[1])), filename="image.png"),
+                                  wait=True)
+    await ctx.channel.create_thread(name=charName, message=Object(msg.id)) # type: ignore
+
+@CAITree.command(name="continue", description="Continue a conversation in a thread.")
+@describe(prompt="the prompt to send to the character, maximum 1024 characters.")
+async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, 1024]):
+    if not ctx.channel or ctx.channel.type != ChannelType.public_thread:
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must be run in a forum or thread."))
+    await ctx.response.defer(thinking=True)
+
+    initMsg = ctx.channel.starter_message or await ctx.channel.parent.fetch_message(ctx.channel.id) # type: ignore
+    data = utils.decodeImage(BytesIO(get(initMsg.embeds[0].thumbnail.url).content)) # type: ignore
+    history_id, tgt = data[0], data[1]
+
+    response = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, prompt) # type: ignore
     char = response["src_char"]
+    charName, charAvatar = char["participant"]["name"], char["avatar_file_name"]
 
     embed = SuccessEmbed(prompt[:255], response["replies"][0]["text"])
-    embed.set_author(name=char["participant"]["name"], icon_url="https://characterai.io/i/400/static/avatars/"+char["avatar_file_name"]) # type: ignore
-    
-    await ctx.followup.send(embed=embed)
+    embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
+    await ctx.followup.send(embed=SuccessEmbed(prompt[:255], response["replies"][0]["text"]))
 
+askTree.add_command(CAITree)
 tree.add_command(askTree)
 
 async def main():
