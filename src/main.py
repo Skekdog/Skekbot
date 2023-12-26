@@ -1,3 +1,4 @@
+from contextlib import suppress
 import os
 from io import BytesIO
 from pathlib import Path
@@ -72,7 +73,7 @@ async def return_channel(id: int) -> Thread | GuildChannel | PrivateChannel:
 async def on_ready():
     syncTask = create_task(tree.sync())
     await gather(syncTask)
-    
+
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")
 async def execute(ctx: Interaction, command: str):
@@ -80,12 +81,19 @@ async def execute(ctx: Interaction, command: str):
         await ctx.response.defer(thinking=True)
 
         returnVal = "Set returnVal to see output."
-        command = f"async def main_exec(_locals): ctx = _locals['ctx']; {command}; _locals['returnVal'] = returnVal"
+        command = f"async def main_exec(_locals): ctx = _locals['ctx']; returnVal = 'Set returnVal to see output.'; {command}; _locals['returnVal'] = returnVal"
         _locals = locals()
         exec(command, globals(), _locals)
         await _locals["main_exec"](_locals)
 
-        await ctx.followup.send(_locals["returnVal"])
+        await ctx.followup.send(str(_locals["returnVal"]))
+
+@command(description="General information about the bot.")
+async def about(ctx: Interaction):
+    embed = SuccessEmbed("About Skekbot", "Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\n\nPrivacy: Data is stored about your expenses incurred for OpenAI. For processing, your prompts are sent to OpenAI or Character.AI.")
+    embed.add_field(name="Copyright Skekdog © 2023", value="Licensed under [GPL v3.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
+    embed.add_field(name="Source Code", value="[GitHub](https://www.github.com/Skekdog/Skekbot)")
+    await ctx.response.send_message(embed=embed)
 
 @command(description="Great for making a bet and immediately regretting it.")
 async def coin_flip(ctx: Interaction):
@@ -182,7 +190,7 @@ async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, 43,
 async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, 1024]):
     if not ctx.channel or ctx.channel.type != ChannelType.public_thread:
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must be run in a forum or thread."))
-    await ctx.response.defer(thinking=True)
+    create_task(ctx.response.defer(thinking=True))
 
     initMsg = ctx.channel.starter_message or await ctx.channel.parent.fetch_message(ctx.channel.id) # type: ignore
     data = utils.decodeImage(BytesIO(get(initMsg.embeds[0].thumbnail.url).content)) # type: ignore

@@ -14,7 +14,7 @@ from database import get, update
 
 openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
-OPENAI_BUDGET = 0.02
+OPENAI_BUDGET = 0.005
 MAX_TOKENS = 850 # This was determined by spamming nonsense into tokeniser to get ~4000 characters.
 
 PRICING_CHATINPUT = (0.001 / 1000) # $0.001 per 1k input tokens
