@@ -90,7 +90,7 @@ async def execute(ctx: Interaction, command: str):
 
 @command(description="General information about the bot.")
 async def about(ctx: Interaction):
-    embed = SuccessEmbed("About Skekbot", "Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\n\nPrivacy: Data is stored about your expenses incurred for OpenAI. For processing, your prompts are sent to OpenAI or Character.AI.")
+    embed = SuccessEmbed("About Skekbot", "Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).")
     embed.add_field(name="Copyright Skekdog © 2023", value="Licensed under [GPL v3.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
     embed.add_field(name="Source Code", value="[GitHub](https://www.github.com/Skekdog/Skekbot)")
     await ctx.response.send_message(embed=embed)
