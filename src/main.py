@@ -31,6 +31,8 @@ _ColourFormatter.LEVEL_COLOURS = [
     (ERROR, '\033[91m'),
 ]
 
+OWNER_ID = 534828861586800676
+
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.blue(), title=title, type=type, url=url, description=description, timestamp=timestamp)
@@ -50,22 +52,18 @@ basicConfig(
     ]
 )
 
-# // Intents
+# Intents
 intents = Intents.none()
-intents.message_content = True # // For What If and dad and some other things
-intents.messages = True # // Same thing
-intents.guilds = True # // The docs said it's a good idea to keep this enabled so...
-intents.members = True # // So that we can know people's names
+intents.message_content = True # For What If and dad and some other things
+intents.messages = True        # Same thing
+intents.members = True         # So that we can know people's names
+intents.guilds = True          # The docs said it's a good idea to keep this enabled so...
 
-OWNER_ID = 534828861586800676
-
-CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
 client = Client(intents=intents)
 tree = CommandTree(client)
 command = tree.command
 
-async def return_channel(id: int) -> Thread | GuildChannel | PrivateChannel:
-    return client.get_channel(id) or await client.fetch_channel(id)
+CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
 
 @client.event
 async def on_ready():
@@ -76,9 +74,9 @@ async def on_ready():
 @describe(command="the python code to execute. See main.py for available globals.")
 async def execute(ctx: Interaction, command: str):
     if ctx.user.id == OWNER_ID:
+        info(f"Attempting to execute command: {command}")
         await ctx.response.defer(thinking=True)
 
-        returnVal = "Set returnVal to see output."
         command = f"async def main_exec(_locals): ctx = _locals['ctx']; returnVal = 'Set returnVal to see output.'; {command}; _locals['returnVal'] = returnVal"
         _locals = locals()
         exec(command, globals(), _locals)
@@ -89,7 +87,7 @@ async def execute(ctx: Interaction, command: str):
 @command(description="General information about the bot.")
 async def about(ctx: Interaction):
     embed = SuccessEmbed("About Skekbot", "Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).")
-    embed.add_field(name="Copyright Skekdog © 2023", value="Licensed under [GPL v3.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
+    embed.add_field(name="Copyright Skekdog © 2023", value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
     embed.add_field(name="Source Code", value="[GitHub](https://www.github.com/Skekdog/Skekbot)")
     await ctx.response.send_message(embed=embed)
 
