@@ -4,8 +4,8 @@ from pathlib import Path
 from asyncio import create_task, gather, run, CancelledError, InvalidStateError
 from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
 
-from discord import ChannelType, Client, Embed, File, Intents, Interaction, Object, Thread
-from discord.abc import PrivateChannel, GuildChannel
+from discord import ChannelType, Client, Embed, File, Intents, Interaction, Object
+from discord import VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe
 from discord.colour import Colour
 from discord.types.embed import EmbedType
@@ -59,6 +59,7 @@ intents.messages = True        # Same thing
 intents.members = True         # So that we can know people's names
 intents.guilds = True          # The docs said it's a good idea to keep this enabled so...
 
+VoiceClient.warn_nacl = False
 client = Client(intents=intents)
 tree = CommandTree(client)
 command = tree.command
