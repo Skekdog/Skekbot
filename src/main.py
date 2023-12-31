@@ -25,13 +25,16 @@ os.chdir(Path(__file__).parent.parent)
 logger = getLogger("skekbot" if __name__ == "__main__" else __name__)
 info, warn, error = logger.info, logger.warning, logger.error
 
-OWNER_ID = 534828861586800676
-MIN_DISCORD_MSG_LINK_LEN = 30
-MAX_DISCORD_MSG_LINK_LEN = 100
-MAX_TRANSCRIBE_FILE_SIZE = 25
-MAX_CHATGPT_MSG_LEN = 2048
-MAX_CAI_MSG_LEN = 1024
-CAI_ID_LEN = 43
+# Constants
+
+SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI
+OWNER_ID = 534828861586800676  # That's me
+MIN_DISCORD_MSG_LINK_LEN = 30  # There isn't really a reason for this
+MAX_DISCORD_MSG_LINK_LEN = 100 # Like above this is also arbitrary
+MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI
+MAX_CHATGPT_MSG_LEN = 2048     # Half of max output (which is both input and output combined)
+MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
+CAI_ID_LEN = 43                # Exact length determined from various IDs
 
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
@@ -59,7 +62,7 @@ intents.messages = True        # Same thing
 intents.members = True         # So that we can know people's names
 intents.guilds = True          # The docs said it's a good idea to keep this enabled so...
 
-VoiceClient.warn_nacl = False
+VoiceClient.warn_nacl = False # Disables warning about PyNaCl, because we don't need voice
 client = Client(intents=intents)
 tree = CommandTree(client)
 command = tree.command
@@ -131,12 +134,13 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     except IndexError: linkFail = True
 
     def fail(reason: str):
-        embed.title = "Transcription failed."
+        embed.title = "Transcription failed"
         embed.description = reason
         embed.color = Colour.red()
 
-    if not msg or linkFail or (not msg.attachments) or ((msg.attachments[0].content_type or "").split("/")[0] != "audio"):
-        fail("Invalid message link.")
+    if not msg or linkFail or (not msg.attachments) or ((msg.attachments[0].content_type or "") not in ["audio/"+type for type in SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS]):
+        supportedFormatsStr = ", ".join(f"{element}" for element in SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS)
+        fail(f"Invalid message link. Make sure that the first attachment is an audio file, or that the message is a voice message.\nSupported formats: {supportedFormatsStr}")
     else:
         audio = msg.attachments[0]
         if (audio.size / 1_000_000) > MAX_TRANSCRIBE_FILE_SIZE:
@@ -149,7 +153,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
                 fail("You do not have enough credits.")
             else:
                 embed.description = transcription
-                embed.title = "Transcription completed."
+                embed.title = "Transcription completed"
 
     await msgTask
     await msgTask.result().edit(embed=embed)
@@ -167,7 +171,7 @@ async def ask_gpt(ctx: Interaction, prompt: Range[str, None, MAX_CHATGPT_MSG_LEN
         try:
             if failed:
                 await msgTask
-                return await msgTask.result().edit(embed=FailEmbed("Generation failed.", msg))
+                return await msgTask.result().edit(embed=FailEmbed("Generation failed", msg))
             embed.description = msg
             await msgTask.result().edit(embed=embed)
         except (CancelledError, InvalidStateError): pass
@@ -211,7 +215,7 @@ async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, M
     initMsg = channel.starter_message or await channel.parent.fetch_message(channel.id)
     url = initMsg.embeds[0].thumbnail.url
     if not url:
-        return await ctx.response.send_message(embed=FailEmbed("Command Failed", "An unknown error occurred."))
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "An unknown error occurred."))
     data = utils.decodeImage(BytesIO(get(url).content))
     history_id, tgt = data[0], data[1]
 

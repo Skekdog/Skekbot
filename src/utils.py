@@ -10,7 +10,7 @@ from tiktoken import encoding_for_model
 from time import time_ns
 from PIL import Image
 
-from database import get, update
+from database import get, update, Error
 
 openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
@@ -23,7 +23,9 @@ PRICING_IMAGE = (0.016) # $0.016 for a 256x256 image.
 PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
 
 def hasEnoughCredits(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int) -> bool:
-    usage, bonus = get("userdata", id, (0, 0, ), "openaicredituse, openaibonuscredits")
+    result = get("userdata", id, (0, 0, ), "openaicredituse, openaibonuscredits")
+    if isinstance(result, Error): return False
+    usage, bonus = result
 
     approxCost = float("inf")
     if intentType == "chat":
@@ -31,15 +33,18 @@ def hasEnoughCredits(id: int, intentType: Literal["chat", "image", "audio"], int
     elif intentType == "audio": approxCost = (intentAmount * PRICING_AUDIO)
     elif intentType == "image": approxCost = (intentAmount * PRICING_IMAGE)
 
-    return (((OPENAI_BUDGET + bonus) - usage) - approxCost) > 0 # type: ignore
+    return (((OPENAI_BUDGET + bonus) - usage) - approxCost) > 0
 
-def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int, intentAmount2: int | None = None):
+def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int, intentAmount2: int | None = None) -> float:
     charge = 0
     if intentType == "chat" and intentAmount2:
         charge = (intentAmount * PRICING_CHATINPUT) + (intentAmount2 * PRICING_CHATOUTPUT)
     elif intentType == "image": charge = intentAmount * PRICING_IMAGE
     elif intentType == "audio": charge = intentAmount * PRICING_AUDIO
-    update("userdata", id, "openaicredituse", get("userdata", id, (0,), "openaicredituse")[0] + charge)
+
+    currentSpend = get("userdata", id, (0,), "openaicredituse")
+    if isinstance(currentSpend, Error): return 0
+    update("userdata", id, "openaicredituse", currentSpend[0] + charge)
     return charge
 
 def encodeImage(data: Tuple[str, ...]) -> BytesIO:
@@ -123,4 +128,4 @@ async def transcribe(id: int, audio: BytesIO) -> str | None: # streaming is not 
     )
     audio.close()
 
-    return transcription # type: ignore
+    return str(transcription)
