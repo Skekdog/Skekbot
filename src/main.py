@@ -23,15 +23,15 @@ from database import sql_execute # Can be used in /execute
 os.chdir(Path(__file__).parent.parent)
 
 logger = getLogger("skekbot" if __name__ == "__main__" else __name__)
-info, warn, error = logger.info, logger.warn, logger.error
-
-_ColourFormatter.LEVEL_COLOURS = [
-    (INFO, '\033[94m'),
-    (WARNING, '\033[93m'),
-    (ERROR, '\033[91m'),
-]
+info, warn, error = logger.info, logger.warning, logger.error
 
 OWNER_ID = 534828861586800676
+MIN_DISCORD_MSG_LINK_LEN = 30
+MAX_DISCORD_MSG_LINK_LEN = 100
+MAX_TRANSCRIBE_FILE_SIZE = 25
+MAX_CHATGPT_MSG_LEN = 2048
+MAX_CAI_MSG_LEN = 1024
+CAI_ID_LEN = 43
 
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
@@ -78,9 +78,25 @@ async def execute(ctx: Interaction, command: str):
         info(f"Attempting to execute command: {command}")
         await ctx.response.defer(thinking=True)
 
-        command = f"async def main_exec(_locals): ctx = _locals['ctx']; returnVal = 'Set returnVal to see output.'; {command}; _locals['returnVal'] = returnVal"
+        command = f"""
+async def main_exec(_locals):
+    ctx = _locals['ctx']
+    returnVal = 'Set returnVal to see output.'
+    try:
+        {command}
+    except Exception as err:
+        returnVal = 'An exception was raised: '+repr(err)
+        info(returnVal)
+    _locals['returnVal'] = returnVal
+"""
+        
         _locals = locals()
-        exec(command, globals(), _locals)
+        try:
+            exec(command, globals(), _locals)
+        except SyntaxError as err:
+            errMsg = str(err)+": "+(err.text or "")
+            info("SyntaxError when attempting execution: "+errMsg)
+            return await ctx.followup.send(errMsg)
         await _locals["main_exec"](_locals)
 
         await ctx.followup.send(str(_locals["returnVal"]))
@@ -98,7 +114,7 @@ async def coin_flip(ctx: Interaction):
 
 @command(description="$$ Transcribes an audio file or voice message.")
 @describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment in the first position. And it must be <25MB.")
-async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
+async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN]):
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating transcription... This may take a while.")
@@ -123,8 +139,8 @@ async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
         fail("Invalid message link.")
     else:
         audio = msg.attachments[0]
-        if (audio.size / 1_000_000) > 25:
-            fail("The audio file is too large. Maximum 25MB.")
+        if (audio.size / 1_000_000) > MAX_TRANSCRIBE_FILE_SIZE:
+            fail(f"The audio file is too large. Maximum {MAX_TRANSCRIBE_FILE_SIZE}MB.")
         else:
             data = BytesIO()
             await audio.save(data)
@@ -140,8 +156,8 @@ async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
 
 askTree = Group(name="ask", description="Chat with AI models.")
 @askTree.command(name="gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.")
-@describe(prompt="the prompt to provide, up to 2048 characters.")
-async def ask_gpt(ctx: Interaction, prompt: Range[str, None, 2048]):
+@describe(prompt=f"the prompt to provide, up to {MAX_CHATGPT_MSG_LEN} characters.")
+async def ask_gpt(ctx: Interaction, prompt: Range[str, None, MAX_CHATGPT_MSG_LEN]):
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating response...")
@@ -161,7 +177,7 @@ async def ask_gpt(ctx: Interaction, prompt: Range[str, None, 2048]):
 CAITree = Group(name="character_ai", description="Chat with character.ai models.")
 @CAITree.command(name="create", description="Create a new chat with a Character. You can find their ID in the URL.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
-async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, 43, 43]):
+async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
@@ -185,8 +201,8 @@ async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, 43,
     await channel.create_thread(name=charName, message=Object(msg.id))
 
 @CAITree.command(name="continue", description="Continue a conversation in a thread.")
-@describe(prompt="the prompt to send to the character, maximum 1024 characters.")
-async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, 1024]):
+@describe(prompt=f"the prompt to send to the character, maximum {MAX_CAI_MSG_LEN} characters.")
+async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, MAX_CAI_MSG_LEN]):
     channel = ctx.channel
     if (not channel) or (channel.type != ChannelType.public_thread) or (not channel.parent) or (channel.parent.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must be run in a forum or thread."))
