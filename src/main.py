@@ -11,6 +11,7 @@ from discord.colour import Colour
 from discord.types.embed import EmbedType
 from discord.utils import _ColourFormatter
 
+from websockets import connect as connectWebsocket
 from characterai import PyAsyncCAI
 from datetime import datetime
 from random import randint
@@ -52,7 +53,7 @@ basicConfig(
 
 # // Intents
 intents = Intents.none()
-intents.message_content = True # // For What If and dad and some other things # type: ignore (for some reason, the type-checker hates this?)
+intents.message_content = True # // For What If and dad and some other things
 intents.messages = True # // Same thing
 intents.guilds = True # // The docs said it's a good idea to keep this enabled so...
 intents.members = True # // So that we can know people's names
@@ -68,10 +69,22 @@ command = tree.command
 async def return_channel(id: int) -> Thread | GuildChannel | PrivateChannel:
     return client.get_channel(id) or await client.fetch_channel(id)
 
+async def websocket_listener():
+    uri = "ws://localhost:8765"
+    
+    async with connectWebsocket(uri) as websocket:
+        print("Connected to WebSocket")
+        
+        while True:
+            try:
+                message = await websocket.recv()
+                print(f"Received message: {message}")
+            except BaseException as err: print(err)
+
 @client.event
 async def on_ready():
-    syncTask = create_task(tree.sync())
-    await gather(syncTask)
+    await tree.sync()
+    info("Command tree synced!")
 
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")
@@ -106,6 +119,8 @@ async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
     embed = SuccessEmbed("Generating transcription... This may take a while.")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
+    # TODO: fetching the attachment is absolutely hideous, rewrite this
+
     link_split = urlparse(message_link).path.split("/")
 
     msg, linkFail = None, False
@@ -119,10 +134,10 @@ async def transcribe(ctx: Interaction, message_link: Range[str, 30, 100]):
         embed.description = reason
         embed.color = Colour.red()
 
-    if linkFail or (not msg.attachments) or ((msg.attachments[0].content_type or "").split("/")[0] != "audio"): # type: ignore
+    if not msg or linkFail or (not msg.attachments) or ((msg.attachments[0].content_type or "").split("/")[0] != "audio"):
         fail("Invalid message link.")
     else:
-        audio = msg.attachments[0] # type: ignore
+        audio = msg.attachments[0]
         if (audio.size / 1_000_000) > 25:
             fail("The audio file is too large. Maximum 25MB.")
         else:
@@ -156,7 +171,7 @@ async def ask_gpt(ctx: Interaction, prompt: Range[str, None, 2048]):
             await msgTask.result().edit(embed=embed)
         except (CancelledError, InvalidStateError): pass
     
-    await utils.chatGPT(ctx.user.id, prompt, update) # type: ignore TODO: This is nicht gut
+    await utils.chatGPT(ctx.user.id, prompt, update) # type: ignore # TODO: This is nicht gut
 
 CAITree = Group(name="character_ai", description="Chat with character.ai models.")
 @CAITree.command(name="create", description="Create a new chat with a Character. You can find their ID in the URL.")
@@ -175,24 +190,28 @@ async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, 43,
     charName, charAvatar, text = response["src__name"], response["src__character__avatar_file_name"], response["text"]
 
     embed = SuccessEmbed(charName, text)
-    embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar) # type: ignore
+    embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
     embed.set_thumbnail(url="attachment://image.png")
 
     msg = await ctx.followup.send(content="Thread created for conversation!",
                                   embed=embed,
                                   file=File(utils.encodeImage((chat["external_id"], tgt.split(":")[1])), filename="image.png"),
                                   wait=True)
-    await ctx.channel.create_thread(name=charName, message=Object(msg.id)) # type: ignore
+    await channel.create_thread(name=charName, message=Object(msg.id))
 
 @CAITree.command(name="continue", description="Continue a conversation in a thread.")
 @describe(prompt="the prompt to send to the character, maximum 1024 characters.")
 async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, 1024]):
-    if not ctx.channel or ctx.channel.type != ChannelType.public_thread:
+    channel = ctx.channel
+    if (not channel) or (channel.type != ChannelType.public_thread) or (not channel.parent) or (channel.parent.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must be run in a forum or thread."))
     create_task(ctx.response.defer(thinking=True))
 
-    initMsg = ctx.channel.starter_message or await ctx.channel.parent.fetch_message(ctx.channel.id) # type: ignore
-    data = utils.decodeImage(BytesIO(get(initMsg.embeds[0].thumbnail.url).content)) # type: ignore
+    initMsg = channel.starter_message or await channel.parent.fetch_message(channel.id)
+    url = initMsg.embeds[0].thumbnail.url
+    if not url:
+        return await ctx.response.send_message(embed=FailEmbed("Command Failed", "An unknown error occurred."))
+    data = utils.decodeImage(BytesIO(get(url).content))
     history_id, tgt = data[0], data[1]
 
     response = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, prompt) # type: ignore
@@ -209,7 +228,7 @@ tree.add_command(askTree)
 async def main():
     clientTask = create_task(client.start(os.environ["SKEKBOT_MAIN_TOKEN"]))
     info("Client starting...")
-    await clientTask
+    await gather(clientTask, websocket_listener())
 
 if __name__ == "__main__":
     run(main())
