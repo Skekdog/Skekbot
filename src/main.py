@@ -11,15 +11,14 @@ from discord.colour import Colour
 from discord.types.embed import EmbedType
 from discord.utils import _ColourFormatter
 
-from websockets import connect as connectWebsocket
 from characterai import PyAsyncCAI
 from datetime import datetime
 from random import randint
 from urllib.parse import urlparse
 from httpx import get
 
-from database import sql_execute # Can be used in /execute
 import utils
+from database import sql_execute # Can be used in /execute
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -57,7 +56,6 @@ intents.message_content = True # // For What If and dad and some other things
 intents.messages = True # // Same thing
 intents.guilds = True # // The docs said it's a good idea to keep this enabled so...
 intents.members = True # // So that we can know people's names
-intents.guild_reactions = True # // We don't need to know about reactions in DMs, for Reaction Roles
 
 OWNER_ID = 534828861586800676
 
@@ -68,18 +66,6 @@ command = tree.command
 
 async def return_channel(id: int) -> Thread | GuildChannel | PrivateChannel:
     return client.get_channel(id) or await client.fetch_channel(id)
-
-async def websocket_listener():
-    uri = "ws://localhost:8765"
-    
-    async with connectWebsocket(uri) as websocket:
-        print("Connected to WebSocket")
-        
-        while True:
-            try:
-                message = await websocket.recv()
-                print(f"Received message: {message}")
-            except BaseException as err: print(err)
 
 @client.event
 async def on_ready():
@@ -228,7 +214,7 @@ tree.add_command(askTree)
 async def main():
     clientTask = create_task(client.start(os.environ["SKEKBOT_MAIN_TOKEN"]))
     info("Client starting...")
-    await gather(clientTask, websocket_listener())
+    await gather(clientTask)
 
 if __name__ == "__main__":
     run(main())
