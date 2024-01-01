@@ -38,7 +38,7 @@ def get(table: Literal["userdata", "announcementchannels"], id: int, default: T,
         error(err)
         return err
 
-def update(table: Literal["userdata", "announcementchannels"], id: int, column: str, value: int | float) -> None | Error:
+def update(table: Literal["userdata", "announcementchannels"], id: int, column: str, value: int | float) -> Error | None:
     res = get(table, id, (0,))
     if isinstance(res, Error):
         error(res)
