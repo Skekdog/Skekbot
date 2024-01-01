@@ -1,36 +1,38 @@
 from os import chdir
 from pathlib import Path
 from logging import getLogger
-from typing import Literal, Tuple, TypeVar
+from typing import Literal, TypeVar, Tuple
 
 from sqlite3 import connect, Error
 
 chdir(Path(__file__).parent.parent)
 
-logger = getLogger(__name__)
+logger = getLogger("skekbot")
 info, warn, error = logger.info, logger.warn, logger.error
 
-db = connect("database.sqlite")
-cursor = db.cursor()
+_db = connect("database.sqlite")
+_cursor = _db.cursor()
 
-cursor.execute("""CREATE TABLE IF NOT EXISTS userdata (
+def _execute(statement: str):
+    info(f"Executing statement: {statement}")
+    return _cursor.execute(statement)
+
+_execute("""CREATE TABLE IF NOT EXISTS userdata (
     id INTEGER PRIMARY KEY,
     openaicredituse INTEGER DEFAULT 0,
     openaibonuscredits INTEGER DEFAULT 0
 )""") # Credit use is stored as an integer representing the amount in pennies (or well, cents)
-
-cursor.execute("""
+_execute("""
     CREATE TABLE IF NOT EXISTS announcementchannels ( id INTEGER PRIMARY KEY )
 """)
-
-db.commit()
+_db.commit()
 
 Error = Error
 
-T = TypeVar("T", bound=Tuple)
+T = TypeVar("T", bound=Tuple[int | float, ...])
 def get(table: Literal["userdata", "announcementchannels"], id: int, default: T, values: str = "*") -> T | Error:
     try:
-        res = cursor.execute(f"SELECT {values} FROM {table} WHERE id = {id}").fetchall()
+        res = _execute(f"SELECT {values} FROM {table} WHERE id = {id}").fetchall()
         return res[0] if len(res) > 0 else default
     except Error as err:
         error(err)
@@ -42,10 +44,11 @@ def update(table: Literal["userdata", "announcementchannels"], id: int, column: 
         error(res)
         return res
     if not res:
-        cursor.execute(f"INSERT INTO {table} (id) VALUES ({id})")
-    cursor.execute(f"UPDATE {table} SET {column} = {value} WHERE id = {id}")
-    db.commit()
+        _execute(f"INSERT INTO {table} (id) VALUES ({id})")
+    _execute(f"UPDATE {table} SET {column} = {value} WHERE id = {id}")
+    _db.commit()
 
-def sql_execute(command: str):
-    cursor.execute(command)
-    db.commit()
+def sql_execute(statement: str, get: bool = False):
+    if get: return _execute(statement).fetchall()
+    _execute(statement)
+    _db.commit()

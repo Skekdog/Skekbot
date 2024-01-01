@@ -1,7 +1,6 @@
 import os
 from asyncio import create_task
-from random import randint
-from typing import Callable, List, Literal, Coroutine, Tuple
+from typing import Callable, Literal, Coroutine
 
 from io import BytesIO
 from pydub import AudioSegment
@@ -47,7 +46,7 @@ def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmo
     update("userdata", id, "openaicredituse", currentSpend[0] + charge)
     return charge
 
-def encodeImage(data: Tuple[str, ...]) -> BytesIO:
+def encodeImage(data: tuple[str, ...]) -> BytesIO:
     # Stores binary data as a 512x? PNG.
     # Each Y stores 64 bytes.
 
@@ -64,11 +63,11 @@ def encodeImage(data: Tuple[str, ...]) -> BytesIO:
     imgData.seek(0)
     return imgData
 
-def decodeImage(data: BytesIO) -> List[str]:
+def decodeImage(data: BytesIO) -> list[str]:
     img = Image.open(data, formats=["png"])
 
     width, height = img.size
-    decodedList = []
+    decodedList: list[str] = []
     
     for y in range(height):
         section, thisByte = "", ""
@@ -76,12 +75,12 @@ def decodeImage(data: BytesIO) -> List[str]:
             if ((x % 8) == 0) and (x != 0):
                 section += chr(int(thisByte, 2))
                 thisByte = ""
-            thisByte += str(img.getpixel((x, y)) // 255)
+            thisByte += str(img.getpixel((x, y)) // 255) # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         decodedList.append((section + chr(int(thisByte, 2))).strip(chr(0)))
 
     return decodedList
 
-UpdateCoroutine = Callable[[str, int], Coroutine[None, Tuple[str, bool], None]]
+UpdateCoroutine = Callable[[str, int], Coroutine[None, tuple[str, bool], None]]
 async def chatGPT(id: int, prompt: str, update: UpdateCoroutine):
     inputTokens = len(encoding_for_model("gpt-3.5-turbo").encode(prompt))
     if not hasEnoughCredits(id, "chat", inputTokens): return await update("You do not have enough credits to run this command.", True)
@@ -114,7 +113,7 @@ async def imagine(id: int, prompt: str, update: UpdateCoroutine):
 async def transcribe(id: int, audio: BytesIO) -> str | None: # streaming is not available for transcriptions
     audio.name = "audio.ogg"
 
-    duration = round(len(AudioSegment.from_file(audio)) / 1000)
+    duration = round(len(AudioSegment.from_file(audio)) / 1000) # type: ignore
     if not hasEnoughCredits(id, "audio", duration): return
 
     chargeUser(id, "audio", duration)

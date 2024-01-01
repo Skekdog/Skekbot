@@ -2,39 +2,57 @@ import os
 from io import BytesIO
 from pathlib import Path
 from asyncio import create_task, gather, run, CancelledError, InvalidStateError
-from logging import basicConfig, FileHandler, StreamHandler, INFO, WARNING, ERROR, getLogger
+from logging import FileHandler, StreamHandler, getLogger
+from typing import Any
 
 from discord import ChannelType, Client, Embed, File, Intents, Interaction, Object
 from discord import VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe
 from discord.colour import Colour
 from discord.types.embed import EmbedType
-from discord.utils import _ColourFormatter
+from discord.utils import setup_logging
+from discord.utils import get as filterOne
 
-from characterai import PyAsyncCAI
+from characterai import PyAsyncCAI # pyright: ignore[reportMissingTypeStubs]
 from datetime import datetime
 from random import randint
 from urllib.parse import urlparse
 from httpx import get
 
 import utils
-from database import sql_execute # Can be used in /execute
+from database import sql_execute # pyright: ignore[reportUnusedImport] | Can be used in /execute
 
 os.chdir(Path(__file__).parent.parent)
 
-logger = getLogger("skekbot" if __name__ == "__main__" else __name__)
+setup_logging(handler=FileHandler("logfile.pylog"))
+setup_logging(handler=StreamHandler())
+logger = getLogger("skekbot")
 info, warn, error = logger.info, logger.warning, logger.error
 
 # Constants
 
-SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI
+SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI documentation
 OWNER_ID = 534828861586800676  # That's me
-MIN_DISCORD_MSG_LINK_LEN = 30  # There isn't really a reason for this
-MAX_DISCORD_MSG_LINK_LEN = 100 # Like above this is also arbitrary
-MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI
+MIN_DISCORD_MSG_LINK_LEN = 82  # Shortest possible link, 17 digit snowflakes
+MAX_DISCORD_MSG_LINK_LEN = 91 # Longest possible link, 20 digit snowflakes
+MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
 MAX_CHATGPT_MSG_LEN = 2048     # Half of max output (which is both input and output combined)
 MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
 CAI_ID_LEN = 43                # Exact length determined from various IDs
+BOT_INVITE = "https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot"
+
+# Intents
+intents = Intents.none()
+intents.message_content = True # For What If and dad and some other things
+intents.messages = True        # Same thing
+intents.guilds = True          # The docs said it's a good idea to keep this enabled so...
+
+VoiceClient.warn_nacl = False # Disables warning about PyNaCl, because we don't need voice
+client = Client(intents=intents, chunk_guilds_on_startup=False)
+tree = CommandTree(client)
+command = tree.command
+
+CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
 
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
@@ -43,31 +61,6 @@ class SuccessEmbed(Embed):
 class FailEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.red(), title=title, type=type, url=url, description=description, timestamp=timestamp)
-
-streamHandler = StreamHandler()
-streamHandler.setFormatter(_ColourFormatter())
-basicConfig(
-    level=INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        FileHandler("logfile.pylog"),
-        streamHandler
-    ]
-)
-
-# Intents
-intents = Intents.none()
-intents.message_content = True # For What If and dad and some other things
-intents.messages = True        # Same thing
-intents.members = True         # So that we can know people's names
-intents.guilds = True          # The docs said it's a good idea to keep this enabled so...
-
-VoiceClient.warn_nacl = False # Disables warning about PyNaCl, because we don't need voice
-client = Client(intents=intents)
-tree = CommandTree(client)
-command = tree.command
-
-CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
 
 @client.event
 async def on_ready():
@@ -106,8 +99,8 @@ async def main_exec(_locals):
 
 @command(description="General information about the bot.")
 async def about(ctx: Interaction):
-    embed = SuccessEmbed("About Skekbot", "Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).")
-    embed.add_field(name="Copyright Skekdog © 2023", value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
+    embed = SuccessEmbed("About Skekbot", "Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\nClick [here](https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot) to invite Skekbot to your server.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).")
+    embed.add_field(name="Copyright Skekdog © 2024", value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
     embed.add_field(name="Source Code", value="[GitHub](https://www.github.com/Skekdog/Skekbot)")
     await ctx.response.send_message(embed=embed)
 
@@ -116,44 +109,44 @@ async def coin_flip(ctx: Interaction):
     await ctx.response.send_message("Heads!" if randint(0,1)==1 else "Tails!")
 
 @command(description="$$ Transcribes an audio file or voice message.")
-@describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment in the first position. And it must be <25MB.")
+@describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment as it's first attachment. And it must be <25MB.")
 async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN]):
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating transcription... This may take a while.")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
-    # TODO: fetching the attachment is absolutely hideous, rewrite this
-
-    link_split = urlparse(message_link).path.split("/")
-
-    msg, linkFail = None, False
-    try: msg = next(x for x in client.cached_messages if x.id == link_split[4])
-    except StopIteration: pass
-    try: msg = msg or await client.get_partial_messageable(int(link_split[3])).fetch_message(int(link_split[4]))
-    except IndexError: linkFail = True
-
-    def fail(reason: str):
+    async def fail(reason: str):
         embed.title = "Transcription failed"
         embed.description = reason
-        embed.color = Colour.red()
+        embed.colour = Colour.red()
+        await msgTask
+        await msgTask.result().edit(embed=embed)
 
-    if not msg or linkFail or (not msg.attachments) or ((msg.attachments[0].content_type or "") not in ["audio/"+type for type in SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS]):
+    link_split = urlparse(message_link).path.split("/")
+    msgId, channelId = int(link_split[-1]), int(link_split[-2])
+
+    msg = filterOne(client.cached_messages, id=msgId) or await client.get_partial_messageable(channelId).fetch_message(msgId)
+
+    if not msg:
+        return await fail("Invalid message link.")
+    if (not msg.attachments) or ((msg.attachments[0].content_type or "") not in ["audio/"+type for type in SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS]):
         supportedFormatsStr = ", ".join(f"{element}" for element in SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS)
-        fail(f"Invalid message link. Make sure that the first attachment is an audio file, or that the message is a voice message.\nSupported formats: {supportedFormatsStr}")
-    else:
-        audio = msg.attachments[0]
-        if (audio.size / 1_000_000) > MAX_TRANSCRIBE_FILE_SIZE:
-            fail(f"The audio file is too large. Maximum {MAX_TRANSCRIBE_FILE_SIZE}MB.")
-        else:
-            data = BytesIO()
-            await audio.save(data)
-            transcription = await utils.transcribe(ctx.user.id, data) 
-            if not transcription:
-                fail("You do not have enough credits.")
-            else:
-                embed.description = transcription
-                embed.title = "Transcription completed"
+        return await fail(f"Message does not have a supported attachment. The message must be a voice message, or the audio is the first attachment and is one of the following formats: {supportedFormatsStr}")
+    
+    audio = msg.attachments[0]
+    if audio.size / 1_000_000 > MAX_TRANSCRIBE_FILE_SIZE:
+        return await fail(f"The audio file is too large. Maximum {MAX_TRANSCRIBE_FILE_SIZE}")
+    
+    data = BytesIO()
+    await audio.save(data)
+    transcription = await utils.transcribe(ctx.user.id, data)
+
+    if not transcription:
+        return await fail("You do not have enough credits.")
+    
+    embed.description = transcription
+    embed.title = "Transcription completed"
 
     await msgTask
     await msgTask.result().edit(embed=embed)
@@ -167,7 +160,7 @@ async def ask_gpt(ctx: Interaction, prompt: Range[str, None, MAX_CHATGPT_MSG_LEN
     embed = SuccessEmbed("Generating response...")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
-    async def update(msg, failed):
+    async def update(msg: str, failed: bool):
         try:
             if failed:
                 await msgTask
@@ -187,11 +180,11 @@ async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, CAI
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
     await ctx.response.defer(thinking=True)
 
-    chat = await CAIClient.chat.new_chat(character_id) # type: ignore
+    chat: Any = await CAIClient.chat.new_chat(character_id) # pyright: ignore[reportGeneralTypeIssues]
 
-    tgt = chat["participants"][0 if not chat["participants"][0]['is_human'] else 1]['user']['username']
+    tgt: str = chat["participants"][0 if not chat["participants"][0]['is_human'] else 1]['user']['username']
 
-    response = chat["messages"][0]
+    response: Any = chat["messages"][0]
     charName, charAvatar, text = response["src__name"], response["src__character__avatar_file_name"], response["text"]
 
     embed = SuccessEmbed(charName, text)
@@ -219,8 +212,8 @@ async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, M
     data = utils.decodeImage(BytesIO(get(url).content))
     history_id, tgt = data[0], data[1]
 
-    response = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, prompt) # type: ignore
-    char = response["src_char"]
+    response: Any = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, prompt) # type: ignore
+    char: Any = response["src_char"]
     charName, charAvatar = char["participant"]["name"], char["avatar_file_name"]
 
     embed = SuccessEmbed(prompt[:255], response["replies"][0]["text"])
