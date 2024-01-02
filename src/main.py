@@ -40,14 +40,19 @@ MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbi
 CAI_ID_LEN = 43                # Exact length determined from various IDs
 
 # Config
+def decode_escape(data: str) -> str:
+    return bytes(data, "latin-1").decode("unicode-escape").encode("latin-1").decode("utf-8")
+
 with open("config.yaml") as file:
     config = yaml_safe_load(file)
-OWNER_ID: int = int(config["owner_id"])
-OWNER_NAME: str = bytes(config["owner_name"], "latin-1").decode("unicode-escape")
-BOT_NAME: str = bytes(config["name"], "latin-1").decode("unicode-escape")
-ABOUT_DESCRIPTION: str = bytes(config["description"], "latin-1").decode("unicode-escape")
-ABOUT_COPYRIGHT: str = bytes(config["copyright"], "latin-1").decode("unicode-escape")
-SOURCE_CODE: str = bytes(config["source_code"], "latin-1").decode("unicode-escape")
+
+OWNER_ID = int(config["OWNER_ID"])
+OWNER_NAME = decode_escape(config["OWNER_NAME"])
+
+BOT_NAME = decode_escape(config["NAME"])
+ABOUT_DESCRIPTION = decode_escape(config["DESCRIPTION"])
+SOURCE_CODE = decode_escape(config["SOURCE_CODE"])
+ABOUT_COPYRIGHT = decode_escape(config["COPYRIGHT"])
 
 # Intents
 intents = Intents.none()

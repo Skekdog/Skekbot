@@ -1,7 +1,16 @@
-owner_id: '534828861586800676' # The ID of the bot owner, used for /execute. DO NOT SET THIS TO SOMEONE YOU DON'T TRUST, AS THEY GAIN FULL CONTROL OF THE BOT!
-owner_name: 'Skekdog' # Name of the author, displayed in /about.
-bot_invite: 'https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot'
-source_code: '[GitHub](https://www.github.com/Skekdog/Skekbot) # Where the source code can be found, formatted with markdown.'
-description: 'Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\nClick [here](https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot) to invite Skekbot to your server.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).' # The description of the bot, displayed in /about.
-name: 'Skekbot' # The name of the bot, displayed in various locations.
-copyright: 'Copyright Skekdog © 2024'
+OWNER_ID: 534828861586800676 # The ID of the bot owner, used for /execute. DO NOT SET THIS TO SOMEONE YOU DON'T TRUST, AS THEY GAIN FULL CONTROL OF THE BOT!
+OWNER_NAME: 'Skekdog' # Name of the author, displayed in /about.
+
+NAME: 'Skekbot'
+DESCRIPTION: 'Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\nClick [here](https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot) to invite Skekbot to your server.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).'
+SOURCE_CODE: '[GitHub](https://www.github.com/Skekdog/Skekbot)'
+COPYRIGHT: 'Copyright Skekdog © 2024'
+
+
+# OWNER_ID   : The Discord ID of the bot owner, used for /execute. DO NOT SET THIS TO SOMEONE UNTRUSTED!
+# OWNER_NAME : Name of the bot author, displayed in /about.
+
+# NAME       : Name of the bot itself, displayed in various locations.
+# DESCRIPTION: Description of the bot, displayed in /about.
+# SOURCE_CODE: A link to the source code.
+# COPYRIGHT  : The copyright notice.
