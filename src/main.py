@@ -6,7 +6,7 @@ from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
 from typing import Any
 
-from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, VoiceClient
+from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Object, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
 from discord.app_commands.checks import cooldown
 from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
