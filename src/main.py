@@ -3,11 +3,13 @@ from io import BytesIO
 from pathlib import Path
 from asyncio import create_task, gather, run, CancelledError, InvalidStateError
 from logging import FileHandler, StreamHandler, getLogger
+from sys import exc_info
 from typing import Any
 
-from discord import ChannelType, Client, Embed, File, Intents, Interaction, Object
-from discord import VoiceClient
-from discord.app_commands import CommandTree, Group, Range, describe
+from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, VoiceClient
+from discord.app_commands import CommandTree, Group, Range, describe, check
+from discord.app_commands.checks import cooldown
+from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
 from discord.colour import Colour
 from discord.types.embed import EmbedType
 from discord.utils import setup_logging
@@ -21,7 +23,6 @@ from urllib.parse import urlparse
 from httpx import get as http_get
 
 import utils
-from database import sql_execute # pyright: ignore[reportUnusedImport] | Can be used in /execute
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -44,7 +45,7 @@ def decode_escape(data: str) -> str:
     return bytes(data, "latin-1").decode("unicode-escape").encode("latin-1").decode("utf-8")
 
 with open("config.yaml") as file:
-    config = yaml_safe_load(file)
+    config: Any = yaml_safe_load(file)
 
 OWNER_ID = int(config["OWNER_ID"])
 OWNER_NAME = decode_escape(config["OWNER_NAME"])
@@ -76,12 +77,35 @@ class FailEmbed(Embed):
         super().__init__(colour=Colour.red(), title=title, type=type, url=url, description=description, timestamp=timestamp)
 
 @client.event
+async def on_error(event: str, *_):
+    err = exc_info()[1]
+    if isinstance(err, HTTPException):
+        warn(f"{err} within {event}.")
+
+@tree.error
+async def on_app_command_error(ctx: Interaction, err: AppCommandError):
+    if isinstance(err, CommandInvokeError):
+        # These are often caused by a user doing something poor, such as deleting the bot's message
+        return warn(f'Command {err.command.name!r} raised an exception: {err.__class__.__name__}: {err}')
+    async def send(msg: str, **kwargs: Any):
+        await ctx.response.send_message(msg, ephemeral=True, *kwargs)
+    if isinstance(err, CommandOnCooldown):
+        return await send(f"You must wait {err.retry_after:.2f}s to use this command again.")
+    if isinstance(err, BotMissingPermissions):
+        return await send(f"This command is unavailable because {BOT_NAME} does not have the required permissions: {", ".join(err.missing_permissions)}. Contact the server admins.")
+    if isinstance(err, MissingPermissions):
+        return await send(f"You do not have the required permissions to run this command: {", ".join(err.missing_permissions)}.")
+    if isinstance(err, CheckFailure):
+        return await send(f"You are not permitted to run this command.")
+
+@client.event
 async def on_ready():
     await tree.sync()
     info("Command tree synced!")
 
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")
+@check(lambda ctx: ctx.user.id == OWNER_ID)
 async def execute(ctx: Interaction, command: str):
     if ctx.user.id == OWNER_ID:
         info(f"Attempting to execute command: {command}")
@@ -89,6 +113,7 @@ async def execute(ctx: Interaction, command: str):
 
         command = f"""
 async def main_exec(_locals):
+    from database import sql_execute
     ctx = _locals['ctx']
     returnVal = 'Set returnVal to see output.'
     try:
@@ -111,6 +136,7 @@ async def main_exec(_locals):
         await ctx.followup.send(str(_locals["returnVal"]))
 
 @command(description="General information about the bot.")
+@cooldown(1, 30, key=lambda ctx: (ctx.guild_id, ctx.user.id))
 async def about(ctx: Interaction):
     embed = SuccessEmbed(f"About {BOT_NAME}", ABOUT_DESCRIPTION)
     embed.add_field(name=ABOUT_COPYRIGHT, value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
@@ -118,11 +144,13 @@ async def about(ctx: Interaction):
     await ctx.response.send_message(embed=embed)
 
 @command(description="Great for making a bet and immediately regretting it.")
+@cooldown(2, 1)
 async def coin_flip(ctx: Interaction):
     await ctx.response.send_message("Heads!" if randint(0,1)==1 else "Tails!")
 
 @command(description="$$ Transcribes an audio file or voice message.")
 @describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment as it's first attachment. And it must be <25MB.")
+@cooldown(1, 5)
 async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN]):
     create_task(ctx.response.defer(thinking=True))
 
@@ -167,6 +195,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
 askTree = Group(name="ask", description="Chat with AI models.")
 @askTree.command(name="gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.")
 @describe(prompt=f"the prompt to provide, up to {MAX_CHATGPT_MSG_LEN} characters.")
+@cooldown(1, 5)
 async def ask_gpt(ctx: Interaction, prompt: Range[str, None, MAX_CHATGPT_MSG_LEN]):
     create_task(ctx.response.defer(thinking=True))
 
@@ -187,6 +216,7 @@ async def ask_gpt(ctx: Interaction, prompt: Range[str, None, MAX_CHATGPT_MSG_LEN
 CAITree = Group(name="character_ai", description="Chat with character.ai models.")
 @CAITree.command(name="create", description="Create a new chat with a Character. You can find their ID in the URL.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
+@cooldown(1, 10)
 async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
@@ -212,6 +242,7 @@ async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, CAI
 
 @CAITree.command(name="continue", description="Continue a conversation in a thread.")
 @describe(prompt=f"the prompt to send to the character, maximum {MAX_CAI_MSG_LEN} characters.")
+@cooldown(2, 1)
 async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, MAX_CAI_MSG_LEN]):
     channel = ctx.channel
     if (not channel) or (channel.type != ChannelType.public_thread) or (not channel.parent) or (channel.parent.type != ChannelType.text):
