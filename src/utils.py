@@ -3,7 +3,7 @@ from asyncio import create_task
 from typing import Callable, Literal, Coroutine
 
 from io import BytesIO
-from pydub import AudioSegment
+from pydub import AudioSegment # pyright: ignore[reportMissingTypeStubs]
 from openai import AsyncOpenAI
 from tiktoken import encoding_for_model
 from time import time_ns
