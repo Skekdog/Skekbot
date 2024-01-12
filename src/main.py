@@ -149,9 +149,11 @@ async def coin_flip(ctx: Interaction):
     await ctx.response.send_message("Heads!" if randint(0,1)==1 else "Tails!")
 
 @command(description="$$ Transcribes an audio file or voice message.")
-@describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment as it's first attachment. And it must be <25MB.")
+@describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment as it's first attachment. And it must be <25MB.",
+          language="the language to translate from."
+)
 @cooldown(1, 5)
-async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN]):
+async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str):
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating transcription... This may take a while.")
@@ -181,7 +183,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     
     data = BytesIO()
     await audio.save(data)
-    transcription = await utils.transcribe(ctx.user.id, data)
+    transcription = await utils.transcribe(ctx.user.id, data, language)
 
     if not transcription:
         return await fail("You do not have enough credits.")

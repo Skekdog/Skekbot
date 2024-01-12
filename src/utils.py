@@ -110,7 +110,7 @@ async def chatGPT(id: int, prompt: str, update: UpdateCoroutine):
 async def imagine(id: int, prompt: str, update: UpdateCoroutine):
     pass
 
-async def transcribe(id: int, audio: BytesIO) -> str | None: # streaming is not available for transcriptions
+async def transcribe(id: int, audio: BytesIO, lang: str) -> str | None: # streaming is not available for transcriptions
     audio.name = "audio.ogg"
 
     duration = round(len(AudioSegment.from_file(audio)) / 1000) # type: ignore
@@ -123,7 +123,8 @@ async def transcribe(id: int, audio: BytesIO) -> str | None: # streaming is not 
         model="whisper-1",
         file=audio,
         prompt="Uh... um... pffpfp...",
-        response_format="text"
+        response_format="text",
+        language=lang,
     )
     audio.close()
 
