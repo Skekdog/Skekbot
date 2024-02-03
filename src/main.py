@@ -4,15 +4,15 @@ from pathlib import Path
 from asyncio import create_task, gather, run, CancelledError, InvalidStateError
 from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
-from typing import Any
+from typing import Any, Optional
 
-from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Object, VoiceClient
+from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
 from discord.app_commands.checks import cooldown
 from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
 from discord.colour import Colour
 from discord.types.embed import EmbedType
-from discord.utils import setup_logging
+from discord.utils import setup_logging, escape_mentions
 from discord.utils import get as filter_one
 
 from yaml import safe_load as yaml_safe_load
@@ -102,6 +102,32 @@ async def on_app_command_error(ctx: Interaction, err: AppCommandError):
 async def on_ready():
     await tree.sync()
     info("Command tree synced!")
+
+def find_any(string: str, subs: list[str], **kwargs: Any) -> Optional[tuple[int, str]]:
+    "Returns the index returned by str.find() and the substring that was found."
+    for sub in subs:
+        pos = string.find(sub)
+        if pos != -1:
+            return (pos, sub)
+    return None
+
+@client.event
+async def on_message(msg: Message):
+    assert client.user
+    author = msg.author
+    if author.id == client.user.id:
+        return
+    
+    content = msg.content
+
+    # Dad
+    lowContent = content.lower()
+    found = find_any(lowContent, ["i'm", "im", "i am", "i’m"])
+    if found:
+        pos, sub = found
+        start = content[pos+len(sub):]
+        name = escape_mentions(start.split(",")[0].split(",")[0][:50]) # Stop at comma / period, max 50 characters
+        await msg.reply(f"Hi{name}, I'm dad!") # name always seems to start with a space so we don't have a space between Hi and {name}
 
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")
