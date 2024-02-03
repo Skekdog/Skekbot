@@ -42,7 +42,7 @@ CAI_ID_LEN = 43                # Exact length determined from various IDs
 
 # Config
 def decode_escape(data: str) -> str:
-    return bytes(data, "latin-1").decode("unicode-escape").encode("latin-1").decode("utf-8")
+    return bytes(data, "utf-8").replace(b"\\n", b"\x0A").decode("utf-8")
 
 with open("config.yaml") as file:
     config: Any = yaml_safe_load(file)
