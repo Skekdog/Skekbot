@@ -1,17 +1,9 @@
-import os
-from asyncio import create_task
-from typing import Callable, Literal, Coroutine
+from typing import Literal
 
 from io import BytesIO
-from pydub import AudioSegment # pyright: ignore[reportMissingTypeStubs]
-from openai import AsyncOpenAI
-from tiktoken import encoding_for_model
-from time import time_ns
+
 from PIL import Image
-
 from database import get, update, Error
-
-openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
 OPENAI_BUDGET = 0.005
 MAX_TOKENS = 850 # This was determined by spamming nonsense into tokeniser to get ~4000 characters.
@@ -79,53 +71,3 @@ def decodeImage(data: BytesIO) -> list[str]:
         decodedList.append((section + chr(int(thisByte, 2))).strip(chr(0)))
 
     return decodedList
-
-UpdateCoroutine = Callable[[str, int], Coroutine[None, tuple[str, bool], None]]
-async def chatGPT(id: int, prompt: str, update: UpdateCoroutine):
-    inputTokens = len(encoding_for_model("gpt-3.5-turbo").encode(prompt))
-    if not hasEnoughCredits(id, "chat", inputTokens): return await update("You do not have enough credits to run this command.", True)
-
-    completion = create_task(openAiClient.chat.completions.create(
-        model="gpt-3.5-turbo",
-        stream=True,
-        messages=[
-            {"role": "system", "content": "Respond objectively and exactly how the user asks"},
-            {"role": "user", "content": prompt}
-        ]
-    ))
-    
-    outputTokens, msg, lastTime = 0, "", time_ns() - 1_000_000_000
-    async for chunk in await (completion):
-        choice = chunk.choices[0]
-        if choice.delta.content:
-            outputTokens += 1
-            msg += (choice.delta.content or "")
-            if (lastTime + 1_000_000_000) > time_ns(): continue
-            lastTime = time_ns()
-            await update(msg, False)
-        if choice.finish_reason:
-            await update(msg+(choice.delta.content or ""), False)
-            return chargeUser(id, "chat", inputTokens, outputTokens)
-        
-async def imagine(id: int, prompt: str, update: UpdateCoroutine):
-    pass
-
-async def transcribe(id: int, audio: BytesIO, lang: str) -> str | None: # streaming is not available for transcriptions
-    audio.name = "audio.ogg"
-
-    duration = round(len(AudioSegment.from_file(audio)) / 1000) # type: ignore
-    if not hasEnoughCredits(id, "audio", duration): return
-
-    chargeUser(id, "audio", duration)
-
-    audio.seek(0)
-    transcription = await openAiClient.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio,
-        prompt="Uh... um... pffpfp...",
-        response_format="text",
-        language=lang,
-    )
-    audio.close()
-
-    return str(transcription)

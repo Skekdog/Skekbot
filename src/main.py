@@ -6,7 +6,7 @@ from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
 from typing import Any, Optional
 
-from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, VoiceClient
+from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
 from discord.app_commands.checks import cooldown
 from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
@@ -22,6 +22,11 @@ from random import randint
 from urllib.parse import urlparse
 from httpx import get as http_get
 
+from openai import AsyncOpenAI
+from tiktoken import encoding_for_model
+from time import time_ns
+from pydub import AudioSegment # pyright: ignore[reportMissingTypeStubs]
+
 import utils
 
 os.chdir(Path(__file__).parent.parent)
@@ -30,15 +35,6 @@ setup_logging(handler=FileHandler("logfile.pylog"))
 setup_logging(handler=StreamHandler())
 logger = getLogger("skekbot")
 info, warn, error = logger.info, logger.warning, logger.error
-
-# Constants
-SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI documentation
-MIN_DISCORD_MSG_LINK_LEN = 82  # Shortest possible link, 17 digit snowflakes
-MAX_DISCORD_MSG_LINK_LEN = 91  # Longest possible link, 20 digit snowflakes
-MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
-MAX_CHATGPT_MSG_LEN = 2048     # Half of max output (which is both input and output combined)
-MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
-CAI_ID_LEN = 43                # Exact length determined from various IDs
 
 # Config
 def decode_escape(data: str) -> str:
@@ -55,6 +51,18 @@ ABOUT_DESCRIPTION = decode_escape(config["DESCRIPTION"])
 SOURCE_CODE = decode_escape(config["SOURCE_CODE"])
 ABOUT_COPYRIGHT = decode_escape(config["COPYRIGHT"])
 
+# Constants
+SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI documentation
+MIN_DISCORD_MSG_LINK_LEN = 82  # Shortest possible link, 17 digit snowflakes
+MAX_DISCORD_MSG_LINK_LEN = 91  # Longest possible link, 20 digit snowflakes
+MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
+MAX_CHATGPT_MSG_LEN = 2048     # Half of max output (which is both input and output combined)
+MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
+CAI_ID_LEN = 43                # Exact length determined from various IDs
+
+CHATGPT_THREAD_NAME = f"{BOT_NAME} ChatGPT Conversation"
+CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation"
+
 # Intents
 intents = Intents.none()
 intents.message_content = True # For What If and dad and some other things
@@ -67,6 +75,7 @@ tree = CommandTree(client)
 command = tree.command
 
 CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
+openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
 
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
@@ -119,6 +128,7 @@ async def on_message(msg: Message):
         return
     
     content = msg.content
+    channel = msg.channel
 
     # Dad
     lowContent = content.lower()
@@ -128,6 +138,69 @@ async def on_message(msg: Message):
         start = content[pos+len(sub):]
         name = escape_mentions(start.split(",")[0].split(",")[0][:50]) # Stop at comma / period, max 50 characters
         await msg.reply(f"Hi{name}, I'm dad!") # name always seems to start with a space so we don't have a space between Hi and {name}
+
+    if channel.type == ChannelType.public_thread:
+        assert isinstance(channel, Thread)
+        if channel.name == CHATGPT_THREAD_NAME:
+            embed = SuccessEmbed("Generating response...")
+            msgTask = create_task(msg.reply(embed=embed))
+
+            async def update(msg: str, failed: bool) -> Any:
+                try:
+                    if failed:
+                        await msgTask
+                        return await msgTask.result().edit(embed=FailEmbed("Generation failed", msg))
+                    embed.description = msg
+                    await msgTask.result().edit(embed=embed)
+                except (CancelledError, InvalidStateError): pass
+
+            inputTokens = len(encoding_for_model("gpt-3.5-turbo").encode(content))
+            if not utils.hasEnoughCredits(author.id, "chat", inputTokens):
+                return await update("You do not have enough credits to run this command.", True)
+            
+            messageHistory = [{
+                "role": "system",
+                "content": "You are in a public chat room. The current speaker is indicated by their name followed with their message. Don't mix people up. You are Assistant, but do not include your name in the response."
+            }]
+            history = [i async for i in channel.history(limit=10)]
+            for i in history:
+                if i.id == msg.id:
+                    continue
+                if i.author == client.user:
+                    if i.embeds and i.embeds[0] and i.embeds[0].description:
+                        messageHistory.insert(1, {
+                            "role": "assistant",
+                            "content": i.embeds[0].description
+                        })
+                else:
+                    messageHistory.insert(1, {
+                        "role": "user",
+                        "content": f"{i.content[:MAX_CHATGPT_MSG_LEN]}"
+                    })
+
+            messageHistory.append({
+                "role": "user",
+                "content": f"{author.name}: {content}"
+            })
+            
+            completion: Any = create_task(openAiClient.chat.completions.create(
+                model="gpt-3.5-turbo",
+                stream=True,
+                messages=messageHistory # type: ignore
+            )) # type: ignore
+            
+            outputTokens, response, lastTime = 0, "", time_ns() - 1_000_000_000
+            async for chunk in await (completion):
+                choice = chunk.choices[0]
+                if choice.delta.content:
+                    outputTokens += 1
+                    response += (choice.delta.content or "")
+                    if (lastTime + 1_000_000_000) > time_ns(): continue
+                    lastTime = time_ns()
+                    await update(response, False)
+                if choice.finish_reason:
+                    await update(response + (choice.delta.content or ""), False)
+                    return utils.chargeUser(author.id, "chat", inputTokens, outputTokens)
 
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")
@@ -209,7 +282,25 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     
     data = BytesIO()
     await audio.save(data)
-    transcription = await utils.transcribe(ctx.user.id, data, language)
+
+    data.name = "audio.ogg"
+
+    duration = round(len(AudioSegment.from_file(audio)) / 1000) # type: ignore
+    if not utils.hasEnoughCredits(ctx.user.id, "audio", duration): return
+
+    utils.chargeUser(ctx.user.id, "audio", duration)
+
+    data.seek(0)
+    transcription = await openAiClient.audio.transcriptions.create(
+        model="whisper-1",
+        file=data,
+        prompt="Uh... um... pffpfp...",
+        response_format="text",
+        language=language,
+    )
+    data.close()
+
+    transcription = str(transcription)
 
     if not transcription:
         return await fail("You do not have enough credits.")
@@ -221,25 +312,20 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     await msgTask.result().edit(embed=embed)
 
 askTree = Group(name="ask", description="Chat with AI models.")
-@askTree.command(name="gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.")
-@describe(prompt=f"the prompt to provide, up to {MAX_CHATGPT_MSG_LEN} characters.")
+@askTree.command(name="chat_gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.")
 @cooldown(1, 5)
-async def ask_gpt(ctx: Interaction, prompt: Range[str, None, MAX_CHATGPT_MSG_LEN]):
-    create_task(ctx.response.defer(thinking=True))
+async def ask_chat_gpt(ctx: Interaction) -> Any:
+    channel = ctx.channel
+    if not channel or (channel.type != ChannelType.text):
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
 
-    embed = SuccessEmbed("Generating response...")
-    msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
+    await ctx.response.defer()
 
-    async def update(msg: str, failed: bool):
-        try:
-            if failed:
-                await msgTask
-                return await msgTask.result().edit(embed=FailEmbed("Generation failed", msg))
-            embed.description = msg
-            await msgTask.result().edit(embed=embed)
-        except (CancelledError, InvalidStateError): pass
-    
-    await utils.chatGPT(ctx.user.id, prompt, update) # type: ignore # TODO: This is nicht gut
+    msg = await ctx.followup.send(content="Thread created for conversation!",
+                                  #file=File(utils.encodeImage((chat["external_id"], tgt.split(":")[1])), filename="image.png"),
+                                  wait=True)
+    await channel.create_thread(name=CHATGPT_THREAD_NAME, message=Object(msg.id))
+
 
 CAITree = Group(name="character_ai", description="Chat with character.ai models.")
 @CAITree.command(name="create", description="Create a new chat with a Character. You can find their ID in the URL.")
