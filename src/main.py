@@ -6,7 +6,7 @@ from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
 from typing import Any, Optional
 
-from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, Thread, VoiceClient
+from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, TextChannel, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
 from discord.app_commands.checks import cooldown
 from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
@@ -137,10 +137,11 @@ async def on_message(msg: Message):
         pos, sub = found
         start = content[pos+len(sub):]
         name = escape_mentions(start.split(",")[0].split(",")[0][:50]) # Stop at comma / period, max 50 characters
-        await msg.reply(f"Hi{name}, I'm dad!") # name always seems to start with a space so we don't have a space between Hi and {name}
+        await msg.reply(f"Hi {name}, I'm dad!") # name always seems to start with a space so we don't have a space between Hi and {name}
 
     if channel.type == ChannelType.public_thread:
         assert isinstance(channel, Thread)
+
         if channel.name == CHATGPT_THREAD_NAME:
             embed = SuccessEmbed("Generating response...")
             msgTask = create_task(msg.reply(embed=embed))
@@ -162,6 +163,7 @@ async def on_message(msg: Message):
                 "role": "system",
                 "content": "You are in a public chat room. The current speaker is indicated by their name followed with their message. Don't mix people up. You are Assistant, but do not include your name in the response."
             }]
+
             history = [i async for i in channel.history(limit=10)]
             for i in history:
                 if i.id == msg.id:
@@ -200,7 +202,26 @@ async def on_message(msg: Message):
                     await update(response, False)
                 if choice.finish_reason:
                     await update(response + (choice.delta.content or ""), False)
+                    embed.title = "Generation completed!"
                     return utils.chargeUser(author.id, "chat", inputTokens, outputTokens)
+                
+        elif channel.name == CHARACTERAI_THREAD_NAME:
+            assert isinstance(channel.parent, TextChannel)
+            initMsg = (channel.starter_message) or (await channel.parent.fetch_message(channel.id))
+            assert initMsg.embeds and initMsg.embeds[0] and initMsg.embeds[0].thumbnail
+            url = initMsg.embeds[0].thumbnail.url
+            if not url:
+                return msg.reply(embed=FailEmbed("Command failed", "An unknown error occurred."))
+            data = utils.decodeImage(BytesIO(http_get(url).content))
+            history_id, tgt = data[0], data[1]
+
+            response: Any = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, f"{author.name}: {content}") # type: ignore
+            char: Any = response["src_char"]
+            charName, charAvatar = char["participant"]["name"], char["avatar_file_name"]
+
+            embed = SuccessEmbed("Generation completed!", response["replies"][0]["text"])
+            embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
+            await msg.reply(embed=embed)
 
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")
@@ -313,25 +334,24 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
 
 askTree = Group(name="ask", description="Chat with AI models.")
 @askTree.command(name="chat_gpt", description="$$ Chat with OpenAI's ChatGPT 3.5.")
-@cooldown(1, 5)
-async def ask_chat_gpt(ctx: Interaction) -> Any:
+@cooldown(1, 10)
+async def ask_chatgpt(ctx: Interaction) -> Any:
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
 
     await ctx.response.defer()
 
-    msg = await ctx.followup.send(content="Thread created for conversation!",
+    msg = await ctx.followup.send(content="Thread created for conversation! Messages sent in this thread will be sent to OpenAI for processing, along with your username. The thread name must not be changed, otherwise messages will no longer be sent.",
                                   #file=File(utils.encodeImage((chat["external_id"], tgt.split(":")[1])), filename="image.png"),
                                   wait=True)
     await channel.create_thread(name=CHATGPT_THREAD_NAME, message=Object(msg.id))
 
 
-CAITree = Group(name="character_ai", description="Chat with character.ai models.")
-@CAITree.command(name="create", description="Create a new chat with a Character. You can find their ID in the URL.")
+@askTree.command(name="characterai", description="Create a new chat with a CharacterAI. You can find their ID in the URL.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
 @cooldown(1, 10)
-async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
+async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
@@ -348,37 +368,14 @@ async def ask_character_ai_create(ctx: Interaction, character_id: Range[str, CAI
     embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
     embed.set_thumbnail(url="attachment://image.png")
 
-    msg = await ctx.followup.send(content="Thread created for conversation!",
+    await CAIClient.chat.send_message(chat["external_id"], tgt, "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'") # type: ignore
+
+    msg = await ctx.followup.send(content="Thread created for conversation! Messages sent in this thread will be sent to CharacterAI for processing, along with your username. The thread name must not be changed, otherwise messages will no longer be sent.",
                                   embed=embed,
                                   file=File(utils.encodeImage((chat["external_id"], tgt.split(":")[1])), filename="image.png"),
                                   wait=True)
-    await channel.create_thread(name=charName, message=Object(msg.id))
+    await channel.create_thread(name=CHARACTERAI_THREAD_NAME, message=Object(msg.id))
 
-@CAITree.command(name="continue", description="Continue a conversation in a thread.")
-@describe(prompt=f"the prompt to send to the character, maximum {MAX_CAI_MSG_LEN} characters.")
-@cooldown(2, 1)
-async def ask_character_ai_continue(ctx: Interaction, prompt: Range[str, None, MAX_CAI_MSG_LEN]):
-    channel = ctx.channel
-    if (not channel) or (channel.type != ChannelType.public_thread) or (not channel.parent) or (channel.parent.type != ChannelType.text):
-        return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must be run in a forum or thread."))
-    create_task(ctx.response.defer(thinking=True))
-
-    initMsg = channel.starter_message or await channel.parent.fetch_message(channel.id)
-    url = initMsg.embeds[0].thumbnail.url
-    if not url:
-        return await ctx.response.send_message(embed=FailEmbed("Command failed", "An unknown error occurred."))
-    data = utils.decodeImage(BytesIO(http_get(url).content))
-    history_id, tgt = data[0], data[1]
-
-    response: Any = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, prompt) # type: ignore
-    char: Any = response["src_char"]
-    charName, charAvatar = char["participant"]["name"], char["avatar_file_name"]
-
-    embed = SuccessEmbed(prompt[:255], response["replies"][0]["text"])
-    embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
-    await ctx.followup.send(embed=SuccessEmbed(prompt[:255], response["replies"][0]["text"]))
-
-askTree.add_command(CAITree)
 tree.add_command(askTree)
 
 async def main():
