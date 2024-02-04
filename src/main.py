@@ -132,7 +132,7 @@ async def on_message(msg: Message):
 
     # Dad
     lowContent = content.lower()
-    found = find_any(lowContent, ["i'm", "im", "i am", "i’m"])
+    found = find_any(lowContent, [" i'm ", " im ", " i am ", " i’m "])
     if found:
         pos, sub = found
         start = content[pos+len(sub):]
@@ -252,7 +252,7 @@ async def coin_flip(ctx: Interaction):
           language="the language to translate from."
 )
 @cooldown(1, 5)
-async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str):
+async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str) -> Any:
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating transcription... This may take a while.")
