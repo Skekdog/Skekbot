@@ -357,7 +357,7 @@ async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN,
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
     await ctx.response.defer(thinking=True)
 
-    chat: Any = await CAIClient.chat.new_chat(character_id) # pyright: ignore[reportGeneralTypeIssues]
+    chat: Any = await CAIClient.chat.new_chat(character_id) # pyright: ignore[reportGeneralTypeIssues, reportCallIssue]
 
     tgt: str = chat["participants"][0 if not chat["participants"][0]['is_human'] else 1]['user']['username']
 
