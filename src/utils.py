@@ -71,3 +71,6 @@ def decodeImage(data: BytesIO) -> list[str]:
         decodedList.append((section + chr(int(thisByte, 2))).strip(chr(0)))
 
     return decodedList
+
+def spoiler_pad(source: str, maxLength: int) -> str:
+    return f"||`{source+(" " * (len(source) - maxLength))}`||"

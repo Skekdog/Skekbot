@@ -266,7 +266,7 @@ async def about(ctx: Interaction):
 @command(description="Great for making a bet and immediately regretting it.")
 @cooldown(2, 1)
 async def coin_flip(ctx: Interaction):
-    await ctx.response.send_message("Heads!" if randint(0,1)==1 else "Tails!")
+    await ctx.response.send_message(utils.spoiler_pad(("Heads!" if randint(0, 1)==1 else "Tails!"), 6)) # 6 is the length of both results, future me!
 
 @command(description="$$ Transcribes an audio file or voice message.")
 @describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment as it's first attachment. And it must be <25MB.",

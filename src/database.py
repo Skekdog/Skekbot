@@ -27,8 +27,6 @@ _execute("""
 """)
 _db.commit()
 
-Error = Error
-
 T = TypeVar("T", bound=Tuple[int | float, ...])
 def get(table: Literal["userdata", "announcementchannels"], id: int, default: T, values: str = "*") -> T | Error:
     try:
