@@ -306,7 +306,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
 
     data.name = "audio.ogg"
 
-    duration = round(len(AudioSegment.from_file(audio)) / 1000) # type: ignore
+    duration = round(len(AudioSegment.from_file(data)) / 1000) # type: ignore
     if not utils.hasEnoughCredits(ctx.user.id, "audio", duration): return
 
     utils.chargeUser(ctx.user.id, "audio", duration)
