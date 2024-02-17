@@ -1,8 +1,9 @@
 from typing import Literal
 
+from cachetools import cached
 from io import BytesIO
-
 from PIL import Image
+
 from database import get, update, Error
 
 OPENAI_BUDGET = 0.005
@@ -38,9 +39,11 @@ def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmo
     update("userdata", id, "openaicredituse", currentSpend[0] + charge)
     return charge
 
+@cached(cache={}) # pyright: ignore[reportUnknownArgumentType]
 def encodeImage(data: tuple[str, ...]) -> BytesIO:
     # Stores binary data as a 512x? PNG.
     # Each Y stores 64 bytes.
+    # Discord doesn't display small images in embeds, so this is hidden from the user. Cool!
 
     img = Image.new("1", (512, len(data)), 0)
     for y, i in enumerate(data):
@@ -55,6 +58,7 @@ def encodeImage(data: tuple[str, ...]) -> BytesIO:
     imgData.seek(0)
     return imgData
 
+@cached(cache={}) # pyright: ignore[reportUnknownArgumentType]
 def decodeImage(data: BytesIO) -> list[str]:
     img = Image.open(data, formats=["png"])
 

@@ -58,7 +58,7 @@ MAX_DISCORD_MSG_LINK_LEN = 91  # Longest possible link, 20 digit snowflakes
 MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
 MAX_CHATGPT_MSG_LEN = 2048     # Half of max output (which is both input and output combined)
 MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
-CAI_ID_LEN = 43                # Exact length determined from various IDs
+CAI_ID_LEN = 43                # This is the exact length determined from various IDs
 
 CHATGPT_THREAD_NAME = f"{BOT_NAME} ChatGPT Conversation"
 CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation"
