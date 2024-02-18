@@ -1,13 +1,13 @@
-OWNER_ID: 534828861586800676 # The ID of the bot owner, used for /execute. DO NOT SET THIS TO SOMEONE YOU DON'T TRUST, AS THEY GAIN FULL CONTROL OF THE BOT!
-OWNER_NAME: 'Skekdog' # Name of the author, displayed in /about.
+OWNER_ID: 534828861586800676 # DO NOT SET THIS TO SOMEONE UNTRUSTED!
+OWNER_NAME: 'Skekdog'
 
 NAME: 'Skekbot'
-DESCRIPTION: 'Skekbot is a mostly-for-fun Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\nClick [here](https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot+applications.commands) to invite Skekbot to your server.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).'
+DESCRIPTION: 'Skekbot is a Discord bot, developed by... Skekdog, using the [discord.py](https://github.com/Rapptz/discord.py) library.\nClick [here](https://discord.com/api/oauth2/authorize?client_id=1054474727642628136&permissions=311385508864&scope=bot+applications.commands) to invite Skekbot to your server.\n\nPrivacy: Data is stored about your expenses incurred for [OpenAI](https://openai.com/). For processing, your prompts are sent to [OpenAI](https://openai.com/) or [Character.AI](https://beta.character.ai/).'
 SOURCE_CODE: '[GitHub](https://www.github.com/Skekdog/Skekbot)'
 COPYRIGHT: 'Copyright Skekdog © 2024'
 
 
-# OWNER_ID   : The Discord ID of the bot owner, used for /execute. DO NOT SET THIS TO SOMEONE UNTRUSTED!
+# OWNER_ID   : DO NOT SET THIS TO SOMEONE UNTRUSTED! The Discord ID of the bot owner, used for /execute.
 # OWNER_NAME : Name of the bot author, displayed in /about.
 
 # NAME       : Name of the bot itself, displayed in various locations.

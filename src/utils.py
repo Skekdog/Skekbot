@@ -7,32 +7,20 @@ from PIL import Image
 from database import get, update, Error
 
 OPENAI_BUDGET = 0.005
-MAX_TOKENS = 850 # This was determined by spamming nonsense into tokeniser to get ~4000 characters.
-
-PRICING_CHATINPUT = (0.001 / 1000) # $0.001 per 1k input tokens
-PRICING_CHATOUTPUT = (0.0015 / 1000) # $0.0015 per 1k output tokens
-PRICING_IMAGE = (0.016) # $0.016 for a 256x256 image.
 PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
 
-def hasEnoughCredits(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int) -> bool:
+def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> bool:
     result = get("userdata", id, (0, 0, ), "openaicredituse, openaibonuscredits")
     if isinstance(result, Error): return False
     usage, bonus = result
 
-    approxCost = float("inf")
-    if intentType == "chat":
-        approxCost = (intentAmount * PRICING_CHATINPUT) + ((MAX_TOKENS - intentAmount) * PRICING_CHATOUTPUT)
-    elif intentType == "audio": approxCost = (intentAmount * PRICING_AUDIO)
-    elif intentType == "image": approxCost = (intentAmount * PRICING_IMAGE)
+    if intentType == "audio": approxCost = (intentInput * PRICING_AUDIO)
 
     return (((OPENAI_BUDGET + bonus) - usage) - approxCost) > 0
 
-def chargeUser(id: int, intentType: Literal["chat", "image", "audio"], intentAmount: int, intentAmount2: int | None = None) -> float:
+def chargeUser(id: int, intentType: Literal["audio"], intentInput: int) -> float:
     charge = 0
-    if intentType == "chat" and intentAmount2:
-        charge = (intentAmount * PRICING_CHATINPUT) + (intentAmount2 * PRICING_CHATOUTPUT)
-    elif intentType == "image": charge = intentAmount * PRICING_IMAGE
-    elif intentType == "audio": charge = intentAmount * PRICING_AUDIO
+    if intentType == "audio": charge = intentInput * PRICING_AUDIO
 
     currentSpend = get("userdata", id, (0,), "openaicredituse")
     if isinstance(currentSpend, Error): return 0
