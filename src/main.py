@@ -127,18 +127,35 @@ async def on_message(msg: Message):
     if author.id == client.user.id:
         return
     
+    tasks: list[Any] = []
+    
     content = msg.content
     channel = msg.channel
 
     # Dad
     lowContent = content.lower()
-    found = find_any(lowContent, [" i'm ", " im ", " i am ", " i’m "])
-    if found:
-        pos, sub = found
-        start = content[pos+len(sub):]
-        name = escape_mentions(start.split(",")[0].split(",")[0][:50]) # Stop at comma / period, max 50 characters
-        await msg.reply(f"Hi {name}, I'm dad!") # name always seems to start with a space so we don't have a space between Hi and {name}
+    split = lowContent.split(" ")
 
+    # Check for "i am", because that's two words not one
+    intersection_index = None
+    for i, v in enumerate(split):
+        if i == len(split):
+            break
+        if (v == "i") and (split[i+1] == "am"):
+            intersection_index = (i + 1, "i a") # If "i am" is triggered, the first letter of name is cut off. I could spend time seeing why but instead I'll just do the first thing that comes to mind - shortening the trigger
+            break
+
+    if intersection_index is None:
+        intersection_index = utils.first_intersection_index(split, ["i'm", "im", "i", "i’m"]) # Special condition for "i" - it needs to be followed by "am"
+    if intersection_index is not None:
+        startIndex = len(" ".join(split[:intersection_index[0]]))
+        name = content[startIndex+len(intersection_index[1])+1:]
+        name = escape_mentions(name.split(",")[0].split(".")[0][:50]).title().strip() # Stop at comma / period, max 50 characters
+        if name != "": # Prevents bot triggering from just saying "I am" on it's own, or by giving a blank name
+            tasks.append(create_task(msg.reply(f"Hi {name}, I'm dad!")))
+
+    
+    # Messages sent in certain threads are used for AI chat
     if channel.type == ChannelType.public_thread:
         assert isinstance(channel, Thread)
 
@@ -222,6 +239,8 @@ async def on_message(msg: Message):
             embed = SuccessEmbed("Generation completed!", response["replies"][0]["text"])
             embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
             await msg.reply(embed=embed)
+
+    await gather(*tuple(tasks))
 
 @command(description="Allows the bot owner to run various debug commands.")
 @describe(command="the python code to execute. See main.py for available globals.")

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from cachetools import cached
 from io import BytesIO
@@ -78,3 +78,10 @@ def decodeImage(data: BytesIO) -> list[str]:
 
 def spoiler_pad(source: str, maxLength: int) -> str:
     return f"||`{source+(" " * (len(source) - maxLength))}`||"
+
+def first_intersection_index(list1: list[Any], list2: list[Any]) -> tuple[int, Any] | None:
+    "Returns the index of the first intersection between two lists, and the element that was found."
+    for idx, elem in enumerate(list1):
+        if elem in list2:
+            return (idx, elem)
+    return None
