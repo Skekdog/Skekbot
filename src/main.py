@@ -4,7 +4,7 @@ from pathlib import Path
 from asyncio import create_task, gather, run, CancelledError, InvalidStateError
 from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
-from typing import Any, Optional
+from typing import Any
 
 from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, TextChannel, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
@@ -111,14 +111,6 @@ async def on_app_command_error(ctx: Interaction, err: AppCommandError):
 async def on_ready():
     await tree.sync()
     info("Command tree synced!")
-
-def find_any(string: str, subs: list[str], **kwargs: Any) -> Optional[tuple[int, str]]:
-    "Returns the index returned by str.find() and the substring that was found."
-    for sub in subs:
-        pos = string.find(sub)
-        if pos != -1:
-            return (pos, sub)
-    return None
 
 @client.event
 async def on_message(msg: Message):
