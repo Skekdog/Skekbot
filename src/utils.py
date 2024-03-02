@@ -22,22 +22,26 @@ def getMaxCredits(id: int) -> float:
 
     return OPENAI_BUDGET + result[0]
 
-def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> bool:
+def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> tuple[bool, float]:
     result = get("userdata", id, (0, 0), "openaicredituse, openaibonuscredits")
-    if isinstance(result, Error): return False
+    if isinstance(result, Error): return False, 0
     usage, bonus = result
 
     if intentType == "audio": approxCost = (intentInput * PRICING_AUDIO)
 
-    return (((OPENAI_BUDGET + bonus) - usage) - approxCost) > 0
+    available = (((OPENAI_BUDGET + bonus) - usage) - approxCost)
+    return available > 0, available
 
-def chargeUser(id: int, intentType: Literal["audio"], intentInput: int) -> float:
+def chargeUser(id: int, intentType: Literal["audio"], intentInput: int, currentSpend: float | None = None) -> float:
     charge = 0
     if intentType == "audio": charge = intentInput * PRICING_AUDIO
 
-    currentSpend = get("userdata", id, (0,), "openaicredituse")
-    if isinstance(currentSpend, Error): return 0
-    update("userdata", id, "openaicredituse", currentSpend[0] + charge)
+    if not currentSpend:
+        _currentSpend = get("userdata", id, (0,), "openaicredituse")
+        if isinstance(_currentSpend, Error): return 0
+        currentSpend = _currentSpend[0]
+    
+    update("userdata", id, "openaicredituse", currentSpend + charge)
     return charge
 
 @cached(cache={}) # pyright: ignore[reportUnknownArgumentType]

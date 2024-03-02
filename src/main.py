@@ -227,8 +227,6 @@ async def credits(ctx: Interaction):
 async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str) -> Any:
     create_task(ctx.response.defer(thinking=True))
 
-    rem = utils.getAvailableCredits(ctx.user.id) # Technically they could run another command whilst this command still processes, and that would make this wrong. Oh well.
-
     embed = SuccessEmbed("Generating transcription... This may take a while.")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
@@ -236,7 +234,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
         embed.title = "Transcription failed"
         embed.description = reason
         embed.colour = Colour.red()
-        embed.add_field(name="This generation did not cost anything.", value = f"You have ${rem:.3f} available.")
+        embed.add_field(name="This generation did not cost anything.", value = "")
         await msgTask
         await msgTask.result().edit(embed=embed)
 
@@ -265,10 +263,11 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     data.name = "audio.ogg"
 
     duration = round(len(AudioSegment.from_file(data)) / 1000) # type: ignore
-    if not utils.hasEnoughCredits(ctx.user.id, "audio", duration):
+    hasEnoughCredits, available = utils.hasEnoughCredits(ctx.user.id, "audio", duration)
+    if not hasEnoughCredits:
         return await fail("You do not have enough credits.")
 
-    cost = utils.chargeUser(ctx.user.id, "audio", duration)
+    cost = utils.chargeUser(ctx.user.id, "audio", duration, available)
 
     data.seek(0)
     transcription = await openAiClient.audio.transcriptions.create(
@@ -284,7 +283,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
         return await fail("An unknown error occurred (1).") # Let's just start doing random error codes
     
     embed.description = str(transcription)
-    embed.add_field(name=f"This generation cost ${cost:.3f}", value=f"You have ${(rem-cost):.3f} available.")
+    embed.add_field(name=f"This generation cost ${cost:.3f}", value=f"You have ${(available-cost):.3f} available.")
     embed.title = "Transcription completed"
 
     await msgTask
