@@ -9,8 +9,21 @@ from database import get, update, Error
 OPENAI_BUDGET = 0.005
 PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
 
+def getAvailableCredits(id: int) -> float:
+    result = get("userdata", id, (0, 0), "openaicredituse, openaibonuscredits")
+    if isinstance(result, Error): return 0
+
+    available = (OPENAI_BUDGET + result[1]) - result[0]
+    return available
+
+def getMaxCredits(id: int) -> float:
+    result = get("userdata", id, (0,), "openaibonuscredits")
+    if isinstance(result, Error): return 0
+
+    return OPENAI_BUDGET + result[0]
+
 def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> bool:
-    result = get("userdata", id, (0, 0, ), "openaicredituse, openaibonuscredits")
+    result = get("userdata", id, (0, 0), "openaicredituse, openaibonuscredits")
     if isinstance(result, Error): return False
     usage, bonus = result
 

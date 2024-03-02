@@ -6,7 +6,7 @@ from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
 from typing import Any
 
-from discord import ChannelType, Client, Embed, File, HTTPException, Intents, Interaction, Message, Object, TextChannel, Thread, VoiceClient
+from discord import ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Message, Object, TextChannel, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
 from discord.app_commands.checks import cooldown
 from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
@@ -212,6 +212,13 @@ async def about(ctx: Interaction):
 async def coin_flip(ctx: Interaction):
     await ctx.response.send_message(utils.spoiler_pad(("Heads!" if randint(0, 1)==1 else "Tails!"), 6)) # 6 is the length of both results, future me!
 
+@command(description="See general info on the credits system, and how many credits you have.")
+@cooldown(1, 5)
+async def credits(ctx: Interaction):
+    uid = ctx.user.id
+    embed = SuccessEmbed("Credits", f"You have ${utils.getAvailableCredits(uid):.3f} out of ${utils.getMaxCredits(uid):.3f} max.\nEach day this is replenished to ${utils.OPENAI_BUDGET:.3f}.")
+    await ctx.response.send_message(embed=embed)
+
 @command(description="$$ Transcribes an audio file or voice message.")
 @describe(message_link="the full URL to the message. It must be a voice message, or have an audio attachment as it's first attachment. And it must be <25MB.",
           language="the language to translate from."
@@ -220,6 +227,8 @@ async def coin_flip(ctx: Interaction):
 async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str) -> Any:
     create_task(ctx.response.defer(thinking=True))
 
+    rem = utils.getAvailableCredits(ctx.user.id) # Technically they could run another command whilst this command still processes, and that would make this wrong. Oh well.
+
     embed = SuccessEmbed("Generating transcription... This may take a while.")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
@@ -227,13 +236,18 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
         embed.title = "Transcription failed"
         embed.description = reason
         embed.colour = Colour.red()
+        embed.add_field(name="This generation did not cost anything.", value = f"You have ${rem:.3f} available.")
         await msgTask
         await msgTask.result().edit(embed=embed)
 
     link_split = urlparse(message_link).path.split("/")
     msgId, channelId = int(link_split[-1]), int(link_split[-2])
 
-    msg = filter_one(client.cached_messages, id=msgId) or await client.get_partial_messageable(channelId).fetch_message(msgId)
+    msg = None
+    try:
+        msg = filter_one(client.cached_messages, id=msgId) or await client.get_partial_messageable(channelId).fetch_message(msgId)
+    except Forbidden:
+        return await fail("The bot does not have permission to view this message.")
 
     if not msg:
         return await fail("Invalid message link.")
@@ -251,26 +265,26 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     data.name = "audio.ogg"
 
     duration = round(len(AudioSegment.from_file(data)) / 1000) # type: ignore
-    if not utils.hasEnoughCredits(ctx.user.id, "audio", duration): return
+    if not utils.hasEnoughCredits(ctx.user.id, "audio", duration):
+        return await fail("You do not have enough credits.")
 
-    utils.chargeUser(ctx.user.id, "audio", duration)
+    cost = utils.chargeUser(ctx.user.id, "audio", duration)
 
     data.seek(0)
     transcription = await openAiClient.audio.transcriptions.create(
         model="whisper-1",
         file=data,
-        prompt="Uh... um... pffpfp...",
+        prompt="Uh... um... pfffff...",
         response_format="text",
         language=language,
     )
     data.close()
 
-    transcription = str(transcription)
-
     if not transcription:
-        return await fail("You do not have enough credits.")
+        return await fail("An unknown error occurred (1).") # Let's just start doing random error codes
     
-    embed.description = transcription
+    embed.description = str(transcription)
+    embed.add_field(name=f"This generation cost ${cost:.3f}", value=f"You have ${(rem-cost):.3f} available.")
     embed.title = "Transcription completed"
 
     await msgTask
