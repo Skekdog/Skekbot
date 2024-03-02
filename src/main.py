@@ -263,11 +263,11 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     data.name = "audio.ogg"
 
     duration = round(len(AudioSegment.from_file(data)) / 1000) # type: ignore
-    hasEnoughCredits, available = utils.hasEnoughCredits(ctx.user.id, "audio", duration)
+    hasEnoughCredits, currentSpend, available = utils.hasEnoughCredits(ctx.user.id, "audio", duration)
     if not hasEnoughCredits:
         return await fail("You do not have enough credits.")
 
-    cost = utils.chargeUser(ctx.user.id, "audio", duration, available)
+    cost = utils.chargeUser(ctx.user.id, "audio", duration, currentSpend)
 
     data.seek(0)
     transcription = await openAiClient.audio.transcriptions.create(

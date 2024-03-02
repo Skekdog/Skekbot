@@ -22,15 +22,16 @@ def getMaxCredits(id: int) -> float:
 
     return OPENAI_BUDGET + result[0]
 
-def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> tuple[bool, float]:
+def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> tuple[bool, float, float]:
+    "Returns a tuple of True if enough credits to do the specified operation, the amount of credits that have already been used, and the available credits."
     result = get("userdata", id, (0, 0), "openaicredituse, openaibonuscredits")
-    if isinstance(result, Error): return False, 0
+    if isinstance(result, Error): return False, 0, 0
     usage, bonus = result
 
     if intentType == "audio": approxCost = (intentInput * PRICING_AUDIO)
 
-    available = (((OPENAI_BUDGET + bonus) - usage) - approxCost)
-    return available > 0, available
+    available = ((OPENAI_BUDGET + bonus) - usage)
+    return (available - approxCost) > 0, usage, available
 
 def chargeUser(id: int, intentType: Literal["audio"], intentInput: int, currentSpend: float | None = None) -> float:
     charge = 0
