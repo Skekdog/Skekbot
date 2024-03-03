@@ -4,9 +4,9 @@ from pathlib import Path
 from asyncio import create_task, gather, run
 from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
-from typing import Any
+from typing import Any, Literal, Optional
 
-from discord import ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Message, Object, TextChannel, Thread, VoiceClient
+from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
 from discord.app_commands.checks import cooldown
 from discord.app_commands import AppCommandError, CommandInvokeError, BotMissingPermissions, CommandOnCooldown, MissingPermissions, CheckFailure
@@ -14,11 +14,12 @@ from discord.colour import Colour
 from discord.types.embed import EmbedType
 from discord.utils import setup_logging, escape_mentions
 from discord.utils import get as filter_one
+from discord.ui import View, Button
 
 from yaml import safe_load as yaml_safe_load
 from characterai import PyAsyncCAI # pyright: ignore[reportMissingTypeStubs]
 from datetime import datetime
-from random import randint
+from random import choice, randint
 from urllib.parse import urlparse
 from httpx import get as http_get
 
@@ -211,6 +212,85 @@ async def about(ctx: Interaction):
 @cooldown(2, 1)
 async def coin_flip(ctx: Interaction):
     await ctx.response.send_message(utils.spoiler_pad(("Heads!" if randint(0, 1)==1 else "Tails!"), 6)) # 6 is the length of both results, future me!
+
+class RPSButton(Button["RPSButton"]):
+    def __init__(self, action: Literal["rock", "paper", "scissors"]):
+        emojiCodepoint = ""
+        if action == "rock":
+            emojiCodepoint = "🪨"
+        elif action == "paper":
+            emojiCodepoint = "📰"
+        elif action == "scissors":
+            emojiCodepoint = f"\u2702\ufe0f" # unicode is so fun! (not)
+        super().__init__(style=ButtonStyle.primary, emoji=emojiCodepoint, label=action.title())
+    
+    async def callback(self, interaction: Interaction):
+        ctx = interaction # Annoyingly, I can't use ctx in the declaration; it must be interaction. On that note, why do I even use ctx?
+        assert self.view is not None and self.label is not None
+        view: RPSView = self.view # pyright: ignore[reportAssignmentType]
+
+        await ctx.response.defer()
+
+        async def not_party():
+            await ctx.followup.send("You are not party to this game!", ephemeral=True)
+        async def already_moved():
+            await ctx.followup.send("You have already played your move!", ephemeral=True)
+
+        async def check_victory():
+            p1Choice, p2Choice = view.plr1Choice, view.plr2Choice
+            p1Mention, p2Mention = f"<@{view.plr1}>", f"<@{view.plr2}>"
+            winner = ""
+            if p1Choice != "" and p2Choice != "":
+                if p1Choice == "rock":
+                    winner = p1Mention if p2Choice == "scissors" else p2Mention if p2Choice == "paper" else "Nobody"
+                elif p1Choice == "paper":
+                    winner = p1Mention if p2Choice == "rock" else p2Mention if p2Choice == "scissors" else "Nobody"
+                elif p1Choice == "scissors":
+                    winner = p1Mention if p2Choice == "paper" else p2Mention if p2Choice == "rock" else "Nobody"
+            if winner == "":
+                return
+            view.stop()
+            return await ctx.followup.send(f"{p1Mention} chose {p1Choice}.\n{p2Mention} chose {p2Choice}.\n\n{winner} wins!")
+        
+        if ctx.user.id == view.plr1:
+            if view.plr1Choice == "":
+                view.plr1Choice = self.label.lower()
+                return await check_victory()
+            else:
+                return await already_moved()
+        if ctx.user.id == view.plr2:
+            if view.plr2Choice == "":
+                view.plr2Choice = self.label.lower()
+                return await check_victory()
+            else:
+                return await already_moved()
+        else:
+            return await not_party()
+
+class RPSView(View):
+    def __init__(self, plr1: int, plr2: int):
+        assert client.user
+        super().__init__(timeout=None)
+        self.plr1 = plr1
+        self.plr2 = plr2
+
+        self.plr1Choice = ""
+        self.plr2Choice = choice(["rock", "paper", "scissors"]) if (plr2 == client.user.id) else ""
+
+        self.add_item(RPSButton("rock"))
+        self.add_item(RPSButton("paper"))
+        self.add_item(RPSButton("scissors"))
+
+@command(description="The game of tactic and skill. But mostly rocks, papers, and scissors.")
+@describe(versus="who to play against. Leaving this blank will default to the bot.")
+async def rock_paper_scissors(ctx: Interaction, versus: Optional[Member]):
+    if not versus:
+        assert client.user
+        return await ctx.response.send_message(f"{client.user.mention}, {ctx.user.mention} challenges you to a game of Rock, Paper, Scissors!", view=RPSView(ctx.user.id, client.user.id))
+    else:
+        if versus.id == ctx.user.id:
+            return await ctx.response.send_message("You must be really lonely to want to verse yourself. Too bad!", ephemeral=True)
+    await ctx.response.send_message(f"{versus.mention}, {ctx.user.mention} challenges you to a game of Rock, Paper, Scissors!", view=RPSView(ctx.user.id, versus.id))
 
 @command(description="See general info on the credits system, and how many credits you have.")
 @cooldown(1, 5)
