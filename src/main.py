@@ -295,6 +295,7 @@ askTree = Group(name="ask", description="Chat with AI models.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
 @cooldown(1, 10)
 async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
+    return await ctx.response.send_message("CharacterAI is currently out-of-date. Try again in a while.")
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
