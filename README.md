@@ -9,6 +9,7 @@ To use, the following environment variables should be set:
 - SKEKBOT_MAIN_TOKEN (for the bot itself)
 - SKEKBOT_OPENAI_TOKEN (for Transcription)
 - SKEKBOT_CHARACTERAI_TOKEN (for CharacterAI) - This can be obtained from browser DevTools > Storage > Local Storage > beta.character.ai > char_token > value
+- SKEKBOT_ANNOUNCEMENT_WEBSOCKET (for announcements. Should be a WebSocket URI, such as ws://example.com)
 
 Additional configuration options are available in config.yaml.
 
