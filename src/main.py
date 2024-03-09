@@ -4,6 +4,7 @@ from pathlib import Path
 from asyncio import create_task, gather, run
 from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
+from time import sleep
 from typing import Any, Literal, Optional
 
 from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
@@ -22,11 +23,14 @@ from datetime import datetime
 from random import choice, randint
 from urllib.parse import urlparse
 from httpx import get as http_get
+from websockets import connect as ws_connect
+from websockets import exceptions as WSExceptions
 
 from openai import AsyncOpenAI
 from pydub import AudioSegment # pyright: ignore[reportMissingTypeStubs]
 
 import utils
+from database import sql_execute
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -57,6 +61,7 @@ MAX_DISCORD_MSG_LINK_LEN = 91  # Longest possible link, 20 digit snowflakes
 MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
 MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
 CAI_ID_LEN = 43                # This is the exact length determined from various IDs
+WS_RECONNECTION_INTERVAL = 5   # Time in seconds to wait before attempting to reconnect to the announcement WebSocket
 
 CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation"
 
@@ -178,7 +183,6 @@ async def execute(ctx: Interaction, command: str):
 
         command = f"""
 async def main_exec(_locals):
-    from database import sql_execute
     ctx = _locals['ctx']
     returnVal = 'Set returnVal to see output.'
     try:
@@ -207,6 +211,22 @@ async def about(ctx: Interaction):
     embed.add_field(name=ABOUT_COPYRIGHT, value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
     embed.add_field(name="Source Code", value=SOURCE_CODE)
     await ctx.response.send_message(embed=embed)
+
+@command(description=f"Sets or unsets this channel to receive {BOT_NAME} announcements.")
+@cooldown(1, 5, key=lambda ctx: (ctx.guild_id))
+@check(lambda ctx: ctx.user.resolved_permissions.manage_channels) # type: ignore
+async def set_bot_announcements(ctx: Interaction):
+    assert ctx.channel_id
+    res = utils.get("announcementchannels", ctx.channel_id, (False, ))
+    if isinstance(res, utils.Error):
+        return await ctx.response.send_message("An error occurred.", ephemeral=True)
+    if res[0]:
+        utils.delete("announcementchannels", ctx.channel_id)
+        return await ctx.response.send_message(f"Successfully stopped this channel from receiving {BOT_NAME} announcements!")
+    res = utils.update("announcementchannels", ctx.channel_id, "id", ctx.channel_id)
+    if res:
+        return await ctx.response.send_message("An error occurred.", ephemeral=True)
+    return await ctx.response.send_message(f"Successfully set up this channel to receive {BOT_NAME} announcements!")
 
 @command(description="Great for making a bet and immediately regretting it.")
 @cooldown(2, 1)
@@ -405,7 +425,35 @@ tree.add_command(askTree)
 async def main():
     clientTask = create_task(client.start(os.environ["SKEKBOT_MAIN_TOKEN"]))
     info("Client starting...")
-    await gather(clientTask)
+
+    uri = os.environ.get("SKEKBOT_ANNOUNCEMENT_WEBSOCKET")
+    if not uri:
+        return await gather(clientTask)
+
+    while True:
+        try:
+            async with ws_connect(uri) as ws:
+                info("Connected to WebSocket!")
+                while True:
+                    response = await ws.recv()
+                    info(f"Received announcement: {response}")
+                    channels = sql_execute("SELECT * FROM announcementchannels", True)
+                    assert channels is not None
+                    if isinstance(channels, utils.Error):
+                        error(channels)
+                        continue
+                    embed = SuccessEmbed(f"{BOT_NAME} Announcement", description=str(response))
+                    for i in channels:
+                        i = i[0]
+                        channel = client.get_channel(i) or (await client.fetch_channel(i))
+                        try:
+                            assert isinstance(channel, TextChannel)
+                            await channel.send(embed=embed)
+                        except Forbidden:
+                            pass
+        except (WSExceptions.ConnectionClosed, TimeoutError):
+            info("Announcement WebSocket closed, attempting to reconnect in 5 seconds...")
+            sleep(5)
 
 if __name__ == "__main__":
     run(main())

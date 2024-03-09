@@ -63,6 +63,9 @@ def get(table: Literal["userdata", "announcementchannels", "botdata"], id: int |
         error(err)
         return err
     
+def delete(table: Literal["userdata", "announcementchannels", "botdata"], id: int | str):
+    sql_execute(f"DELETE FROM {table} WHERE id = {id}")
+    
 if isinstance(lastcreditrefresh := get("botdata", "lastcreditrefresh", (0, ), "value"), Error):
     lastcreditrefresh = 0
 else:
@@ -71,9 +74,8 @@ else:
 def update(table: Literal["userdata", "announcementchannels", "botdata"], id: int | str, column: str, value: int | float | str) -> Error | None:
     if isinstance(id, str):
         id = f"'{id}'"
-    _execute(f"INSERT OR IGNORE INTO {table} (id, {column}) VALUES ({id}, {value})")
-    _execute(f"UPDATE {table} SET {column} = {value} WHERE id = {id}")
-    _db.commit()
+    sql_execute(f"INSERT OR IGNORE INTO {table} (id, {column}) VALUES ({id}, {value})")
+    sql_execute(f"UPDATE {table} SET {column} = {value} WHERE id = {id}")
 
 def sql_execute(statement: str, get: bool = False):
     if get: return _execute(statement).fetchall()

@@ -4,7 +4,7 @@ from cachetools import cached
 from io import BytesIO
 from PIL import Image
 
-from database import get, update, Error
+from database import get, update, delete, Error # pyright: ignore[reportUnusedImport]
 
 OPENAI_BUDGET = 0.005
 PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
