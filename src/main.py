@@ -1,11 +1,10 @@
 import os
 from io import BytesIO
 from pathlib import Path
-from asyncio import create_subprocess_exec, create_task, gather, run
+from asyncio import create_subprocess_exec, create_task, gather, run, sleep
 from asyncio.subprocess import PIPE
 from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
-from time import sleep
 from typing import Any, Literal, Optional
 
 from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
@@ -158,7 +157,7 @@ async def on_message(msg: Message):
             break
 
     if intersection_index is None:
-        intersection_index = utils.first_intersection_index(split, ["i'm", "im", "i", "i’m"]) # Special condition for "i" - it needs to be followed by "am"
+        intersection_index = utils.first_intersection_index(split, ["i'm", "im", "i’m"])
     if intersection_index is not None:
         startIndex = len(" ".join(split[:intersection_index[0]]))
         name = content[startIndex+len(intersection_index[1])+1:]
@@ -491,7 +490,7 @@ async def main():
                             pass
         except (WSExceptions.ConnectionClosed, TimeoutError):
             info("Announcement WebSocket closed, attempting to reconnect in 5 seconds...")
-            sleep(5)
+            await sleep(5)
 
 if __name__ == "__main__":
     run(main())
