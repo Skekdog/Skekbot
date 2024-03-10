@@ -420,7 +420,6 @@ async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN,
     decoded = out.decode("utf-8")
     if decoded == "":
         return await ctx.followup.send(content="An error occured.", ephemeral=True)
-    print(_.decode())
     targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
     
     externalId = targetOutput[0]
