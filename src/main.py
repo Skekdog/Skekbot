@@ -159,7 +159,7 @@ async def on_message(msg: Message):
             assert initMsg.embeds and initMsg.embeds[0] and initMsg.embeds[0].thumbnail
             url = initMsg.embeds[0].thumbnail.url
             if not url:
-                return msg.reply(embed=FailEmbed("Command failed", "An unknown error occurred."))
+                return await msg.reply(embed=FailEmbed("Command failed", "An unknown error occurred."))
             data = utils.decodeImage(BytesIO(http_get(url).content))
             history_id, tgt = data[0], data[1]
 
@@ -169,7 +169,7 @@ async def on_message(msg: Message):
 
             embed = SuccessEmbed("Generation completed!", response["replies"][0]["text"])
             embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
-            await msg.reply(embed=embed)
+            tasks.append(create_task(msg.reply(embed=embed)))
 
     await gather(*tuple(tasks))
 

@@ -47,6 +47,7 @@ def chargeUser(id: int, intentType: Literal["audio"], intentInput: int, currentS
 
 @cached(cache={}) # pyright: ignore[reportUnknownArgumentType]
 def encodeImage(data: tuple[str, ...]) -> BytesIO:
+    # We could do our own encoding system, but at minimum we need 7 bits (6 for 38 characters, and 1 bit for upper/lower case)
     # Stores binary data as a 512x? PNG.
     # Each Y stores 64 bytes.
     # Discord doesn't display small images in embeds, so this is hidden from the user. Cool!
