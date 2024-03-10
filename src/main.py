@@ -19,7 +19,6 @@ from discord.utils import get as filter_one
 from discord.ui import View, Button
 
 from yaml import safe_load as yaml_safe_load
-from characterai import PyAsyncCAI # pyright: ignore[reportMissingTypeStubs]
 from datetime import datetime
 from random import choice, randint
 from urllib.parse import urlparse
@@ -67,6 +66,22 @@ WS_RECONNECTION_INTERVAL = 5   # Time in seconds to wait before attempting to re
 CHARACTERAI_THREAD_VERSION = "v2"
 CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation {CHARACTERAI_THREAD_VERSION}"
 
+# Env Vars
+SKEKBOT_MAIN_TOKEN = os.environ.get("SKEKBOT_MAIN_TOKEN")
+SKEKBOT_OPENAI_TOKEN = os.environ.get("SKEKBOT_OPENAI_TOKEN")
+SKEKBOT_CHARACTERAI_TOKEN = os.environ.get("SKEKBOT_CHARACTERAI_TOKEN")
+SKEKBOT_ANNOUNCEMENT_WEBSOCKET = os.environ.get("SKEKBOT_ANNOUNCEMENT_WEBSOCKET")
+
+if not SKEKBOT_ANNOUNCEMENT_WEBSOCKET:
+    warn("SKEKBOT_ANNOUNCEMENT_WEBSOCKET is unset, announcements will not be supported!")
+if not SKEKBOT_CHARACTERAI_TOKEN:
+    warn("SKEKBOT_CHARACTERAI_TOKEN is unset, CharacterAI commands will not be supported!")
+if not SKEKBOT_OPENAI_TOKEN:
+    warn("SKEKBOT_OPENAI_TOKEN is unset, transcription will not be available!")
+if not SKEKBOT_MAIN_TOKEN:
+    error("SKEKBOT_MAIN_TOKEN is unset, the bot cannot start!")
+    exit(1)
+
 # Intents
 intents = Intents.none()
 intents.message_content = True # For What If and dad and some other things
@@ -78,8 +93,9 @@ client = Client(intents=intents, chunk_guilds_on_startup=False)
 tree = CommandTree(client)
 command = tree.command
 
-CAIClient = PyAsyncCAI(os.environ["SKEKBOT_CHARACTERAI_TOKEN"])
-openAiClient = AsyncOpenAI(api_key=os.environ["SKEKBOT_OPENAI_TOKEN"])
+openAiClient = None
+if SKEKBOT_OPENAI_TOKEN:
+    openAiClient = AsyncOpenAI(api_key=SKEKBOT_OPENAI_TOKEN)
 
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
@@ -162,6 +178,8 @@ async def on_message(msg: Message):
             return await msg.reply("This thread is outdated, please create a new one.")
 
         if channel.name == CHARACTERAI_THREAD_NAME:
+            if not SKEKBOT_CHARACTERAI_TOKEN:
+                return await msg.reply(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."))
             assert isinstance(channel.parent, TextChannel)
             initMsg = (channel.starter_message) or (await channel.parent.fetch_message(channel.id))
             assert initMsg.embeds and initMsg.embeds[0] and initMsg.embeds[0].thumbnail
@@ -171,7 +189,7 @@ async def on_message(msg: Message):
             data = utils.decodeImage(BytesIO(http_get(url).content))
             history_id, char_id = data[0], data[1]
 
-            proc = await create_subprocess_exec("node", "./src/characterai_node", os.environ["SKEKBOT_CHARACTERAI_TOKEN"], char_id, history_id, f"{author.name}: {content}", stdout=PIPE, stderr=PIPE)
+            proc = await create_subprocess_exec("node", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, char_id, history_id, f"{author.name}: {content}", stdout=PIPE, stderr=PIPE)
             out, _ = await proc.communicate()
             decoded = out.decode("utf-8")
             if decoded == "":
@@ -340,6 +358,8 @@ async def credits(ctx: Interaction):
 )
 @cooldown(1, 5)
 async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str) -> Any:
+    if not openAiClient:
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "OpenAI is not available, please contact the bot owner for more info."), ephemeral=True)
     create_task(ctx.response.defer(thinking=True))
 
     embed = SuccessEmbed("Generating transcription... This may take a while.")
@@ -410,12 +430,14 @@ askTree = Group(name="ask", description="Chat with AI models.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
 @cooldown(1, 10)
 async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
+    if not SKEKBOT_CHARACTERAI_TOKEN:
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."), ephemeral=True)
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
-        return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
+        return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."), ephemeral=True)
     await ctx.response.defer(thinking=True)
 
-    proc = await create_subprocess_exec("node", "./src/characterai_node", os.environ["SKEKBOT_CHARACTERAI_TOKEN"], character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'", stdout=PIPE, stderr=PIPE)
+    proc = await create_subprocess_exec("node", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'", stdout=PIPE, stderr=PIPE)
     out, _ = await proc.communicate()
     decoded = out.decode("utf-8")
     if decoded == "":
@@ -443,13 +465,12 @@ async def main():
     clientTask = create_task(client.start(os.environ["SKEKBOT_MAIN_TOKEN"]))
     info("Client starting...")
 
-    uri = os.environ.get("SKEKBOT_ANNOUNCEMENT_WEBSOCKET")
-    if not uri:
+    if not SKEKBOT_ANNOUNCEMENT_WEBSOCKET:
         return await gather(clientTask)
 
-    while True:
+    while SKEKBOT_ANNOUNCEMENT_WEBSOCKET:
         try:
-            async with ws_connect(uri) as ws:
+            async with ws_connect(SKEKBOT_ANNOUNCEMENT_WEBSOCKET) as ws:
                 info("Connected to WebSocket!")
                 while True:
                     response = await ws.recv()
