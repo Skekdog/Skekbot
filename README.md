@@ -28,4 +28,4 @@ Additional configuration options are available in config.yaml.
 - Transcription, on the other hand, is an actually useful feature to be integrated into Discord (given the newly-arrived voice messages), and it has good results with good prices.
 
 ### Credits
-Skekbot uses [https://github.com/realcoloride/node_characterai](node_characterai) for CharacterAI interaction, licensed under MIT.
+Skekbot uses [node_characterai](https://github.com/realcoloride/node_characterai) for CharacterAI interaction, licensed under MIT.
