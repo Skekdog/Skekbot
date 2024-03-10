@@ -1,7 +1,8 @@
 import os
 from io import BytesIO
 from pathlib import Path
-from asyncio import create_task, gather, run
+from asyncio import create_subprocess_exec, create_task, gather, run
+from asyncio.subprocess import PIPE
 from logging import FileHandler, StreamHandler, getLogger
 from sys import exc_info
 from time import sleep
@@ -63,7 +64,8 @@ MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbi
 CAI_ID_LEN = 43                # This is the exact length determined from various IDs
 WS_RECONNECTION_INTERVAL = 5   # Time in seconds to wait before attempting to reconnect to the announcement WebSocket
 
-CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation"
+CHARACTERAI_THREAD_VERSION = "v2"
+CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation {CHARACTERAI_THREAD_VERSION}"
 
 # Intents
 intents = Intents.none()
@@ -152,6 +154,12 @@ async def on_message(msg: Message):
     # Messages sent in certain threads are used for AI chat
     if channel.type == ChannelType.public_thread:
         assert isinstance(channel, Thread)
+        splitName = channel.name.split(" ")
+        rejoinedName = " ".join(splitName[:-1])
+        if rejoinedName == f"{BOT_NAME} CharacterAI":
+            return await msg.reply("This thread is outdated, please create a new one.")
+        elif rejoinedName == (f"{BOT_NAME} CharacterAI Conversation") and (splitName[-1] != CHARACTERAI_THREAD_VERSION):
+            return await msg.reply("This thread is outdated, please create a new one.")
 
         if channel.name == CHARACTERAI_THREAD_NAME:
             assert isinstance(channel.parent, TextChannel)
@@ -161,13 +169,20 @@ async def on_message(msg: Message):
             if not url:
                 return await msg.reply(embed=FailEmbed("Command failed", "An unknown error occurred."))
             data = utils.decodeImage(BytesIO(http_get(url).content))
-            history_id, tgt = data[0], data[1]
+            history_id, char_id = data[0], data[1]
 
-            response: Any = await CAIClient.chat.send_message(history_id, "internal_id:"+tgt, f"{author.name}: {content}") # type: ignore
-            char: Any = response["src_char"]
-            charName, charAvatar = char["participant"]["name"], char["avatar_file_name"]
+            proc = await create_subprocess_exec("node", "./src/characterai_node", os.environ["SKEKBOT_CHARACTERAI_TOKEN"], char_id, history_id, f"{author.name}: {content}", stdout=PIPE, stderr=PIPE)
+            out, _ = await proc.communicate()
+            decoded = out.decode("utf-8")
+            if decoded == "":
+                return await msg.reply("An error occured.")
+            targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
+            
+            charName = targetOutput[1]
+            charAvatar = targetOutput[2]
+            response = targetOutput[3]
 
-            embed = SuccessEmbed("Generation completed!", response["replies"][0]["text"])
+            embed = SuccessEmbed("Generation completed!", response)
             embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
             tasks.append(create_task(msg.reply(embed=embed)))
 
@@ -395,28 +410,31 @@ askTree = Group(name="ask", description="Chat with AI models.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
 @cooldown(1, 10)
 async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
-    return await ctx.response.send_message("CharacterAI is currently out-of-date. Try again in a while.")
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."))
     await ctx.response.defer(thinking=True)
 
-    chat: Any = await CAIClient.chat.new_chat(character_id) # pyright: ignore[reportGeneralTypeIssues, reportCallIssue]
+    proc = await create_subprocess_exec("node", "./src/characterai_node", os.environ["SKEKBOT_CHARACTERAI_TOKEN"], character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'", stdout=PIPE, stderr=PIPE)
+    out, _ = await proc.communicate()
+    decoded = out.decode("utf-8")
+    if decoded == "":
+        return await ctx.followup.send(content="An error occured.", ephemeral=True)
+    print(_.decode())
+    targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
+    
+    externalId = targetOutput[0]
+    charName = targetOutput[1]
+    charAvatar = targetOutput[2]
+    response = targetOutput[3]
 
-    tgt: str = chat["participants"][0 if not chat["participants"][0]['is_human'] else 1]['user']['username']
-
-    response: Any = chat["messages"][0]
-    charName, charAvatar, text = response["src__name"], response["src__character__avatar_file_name"], response["text"]
-
-    embed = SuccessEmbed(charName, text)
+    embed = SuccessEmbed(charName, response)
     embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
     embed.set_thumbnail(url="attachment://image.png")
 
-    await CAIClient.chat.send_message(chat["external_id"], tgt, "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'") # type: ignore
-
     msg = await ctx.followup.send(content="Thread created for conversation! Messages sent in this thread will be sent to CharacterAI for processing, along with your username. The thread name must not be changed, otherwise messages will no longer be sent.",
                                   embed=embed,
-                                  file=File(utils.encodeImage((chat["external_id"], tgt.split(":")[1])), filename="image.png"),
+                                  file=File(utils.encodeImage((externalId, character_id)), filename="image.png"),
                                   wait=True)
     await channel.create_thread(name=CHARACTERAI_THREAD_NAME, message=Object(msg.id))
 

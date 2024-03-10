@@ -2,3 +2,5 @@
 /src/__pycache__
 /database.sqlite
 /logfile.pylog
+node_modules
+package-lock.json
