@@ -493,4 +493,7 @@ async def main():
             await sleep(5)
 
 if __name__ == "__main__":
-    run(main())
+    try:
+        run(main())
+    except KeyboardInterrupt:
+        exit()
