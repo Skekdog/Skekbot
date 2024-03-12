@@ -11,6 +11,7 @@ To use, the following environment variables should be set:
 - SKEKBOT_CHARACTERAI_TOKEN (for CharacterAI) - This can be obtained from browser DevTools > Storage > Local Storage > beta.character.ai > char_token > value
 - SKEKBOT_ANNOUNCEMENT_WEBSOCKET (for announcements. Should be a WebSocket URI, such as `ws://example.com`)
 - FFMpeg must also be available in PATH
+- SKEKBOT_CHROMIUM_PATH [OPTIONAL] (for CharacterAI, if default does not work)
 
 Additional configuration options are available in config.yaml.
 

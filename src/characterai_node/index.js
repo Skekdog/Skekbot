@@ -3,6 +3,8 @@ const Chat = require("node_characterai/chat")
 const Parser = require("node_characterai/parser")
 const characterAI = new CharacterAI();
 
+characterAI.requester.puppeteerPath = process.env.SKEKBOT_CHROMIUM_PATH;
+
 // CLI Args:
 // 0: Node.exe
 // 1: Start directory

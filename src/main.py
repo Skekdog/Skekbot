@@ -488,7 +488,7 @@ async def main():
                             await channel.send(embed=embed)
                         except Forbidden:
                             pass
-        except (WSExceptions.ConnectionClosed, TimeoutError):
+        except (WSExceptions.ConnectionClosed, TimeoutError, ConnectionRefusedError):
             info("Announcement WebSocket closed, attempting to reconnect in 5 seconds...")
             await sleep(5)
 
