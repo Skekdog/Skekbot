@@ -4,6 +4,7 @@ from pathlib import Path
 from asyncio import create_subprocess_exec, create_task, gather, run, sleep
 from asyncio.subprocess import PIPE
 from logging import FileHandler, StreamHandler, getLogger
+from socket import gaierror
 from sys import exc_info
 from typing import Any, Literal, Optional
 
@@ -38,33 +39,6 @@ setup_logging(handler=StreamHandler())
 logger = getLogger("skekbot")
 info, warn, error = logger.info, logger.warning, logger.error
 
-# Config
-def decode_escape(data: str) -> str:
-    return bytes(data, "utf-8").replace(b"\\n", b"\x0A").decode("utf-8")
-
-with open("config.yaml") as file:
-    config: Any = yaml_safe_load(file)
-
-OWNER_ID = int(config["OWNER_ID"])
-OWNER_NAME = decode_escape(config["OWNER_NAME"])
-
-BOT_NAME = decode_escape(config["NAME"])
-ABOUT_DESCRIPTION = decode_escape(config["DESCRIPTION"])
-SOURCE_CODE = decode_escape(config["SOURCE_CODE"])
-ABOUT_COPYRIGHT = decode_escape(config["COPYRIGHT"])
-
-# Constants
-SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI documentation
-MIN_DISCORD_MSG_LINK_LEN = 82  # Shortest possible link, 17 digit snowflakes
-MAX_DISCORD_MSG_LINK_LEN = 91  # Longest possible link, 20 digit snowflakes
-MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
-MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
-CAI_ID_LEN = 43                # This is the exact length determined from various IDs
-WS_RECONNECTION_INTERVAL = 5   # Time in seconds to wait before attempting to reconnect to the announcement WebSocket
-
-CHARACTERAI_THREAD_VERSION = "v2"
-CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation {CHARACTERAI_THREAD_VERSION}"
-
 # Env Vars
 SKEKBOT_MAIN_TOKEN = os.environ.get("SKEKBOT_MAIN_TOKEN")
 SKEKBOT_OPENAI_TOKEN = os.environ.get("SKEKBOT_OPENAI_TOKEN")
@@ -80,6 +54,35 @@ if not SKEKBOT_OPENAI_TOKEN:
 if not SKEKBOT_MAIN_TOKEN:
     error("SKEKBOT_MAIN_TOKEN is unset, the bot cannot start!")
     exit(1)
+
+# Config
+def decode_escape(data: str) -> str:
+    return bytes(data, "utf-8").replace(b"\\n", b"\x0A").decode("utf-8")
+
+with open("config.yaml") as file:
+    config: Any = yaml_safe_load(file)
+
+OWNER_ID = int(config["OWNER_ID"])
+OWNER_NAME = decode_escape(config["OWNER_NAME"])
+
+BOT_NAME = decode_escape(config["NAME"])
+ABOUT_DESCRIPTION = decode_escape(config["DESCRIPTION"])
+SOURCE_CODE = decode_escape(config["SOURCE_CODE"])
+ABOUT_COPYRIGHT = decode_escape(config["COPYRIGHT"])
+
+WEBSOCKET_RECONNECT_INTERVAL = int(config["WEBSOCKET_RECONNECT_INTERVAL"])
+
+# Constants
+SUPPORTED_TRANSCRIPTION_AUDIO_FORMATS = ["flac", "mp3", "mp4", "mpeg", "mpga", "m4a", "ogg", "wav", "webm"] # As per OpenAI documentation
+MIN_DISCORD_MSG_LINK_LEN = 82  # Shortest possible link, 17 digit snowflakes
+MAX_DISCORD_MSG_LINK_LEN = 91  # Longest possible link, 20 digit snowflakes
+MAX_TRANSCRIBE_FILE_SIZE = 25  # Size in MB as per OpenAI documentation
+MAX_CAI_MSG_LEN = 1024         # TODO: See the actual limit of CAI, this is arbitrary
+CAI_ID_LEN = 43                # This is the exact length determined from various IDs
+WS_RECONNECTION_INTERVAL = 5   # Time in seconds to wait before attempting to reconnect to the announcement WebSocket
+
+CHARACTERAI_THREAD_VERSION = "v2"
+CHARACTERAI_THREAD_NAME = f"{BOT_NAME} CharacterAI Conversation {CHARACTERAI_THREAD_VERSION}"
 
 # Intents
 intents = Intents.none()
@@ -489,8 +492,11 @@ async def main():
                         except Forbidden:
                             pass
         except (WSExceptions.ConnectionClosed, TimeoutError, ConnectionRefusedError):
-            info("Announcement WebSocket closed, attempting to reconnect in 5 seconds...")
-            await sleep(5)
+            info(f"Announcement WebSocket closed, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds...")
+            await sleep(WEBSOCKET_RECONNECT_INTERVAL)
+        except gaierror:
+            info(f"Lost connection to WebSocket, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds...")
+            await sleep(WEBSOCKET_RECONNECT_INTERVAL)
 
 if __name__ == "__main__":
     try:

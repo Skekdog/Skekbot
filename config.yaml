@@ -6,6 +6,8 @@ DESCRIPTION: 'Skekbot is a Discord bot, developed by... Skekdog, using the [disc
 SOURCE_CODE: '[GitHub](https://www.github.com/Skekdog/Skekbot)'
 COPYRIGHT: 'Copyright Skekdog © 2024'
 
+WEBSOCKET_RECONNECT_INTERVAL: 5
+
 
 # OWNER_ID   : DO NOT SET THIS TO SOMEONE UNTRUSTED! The Discord ID of the bot owner, used for /execute.
 # OWNER_NAME : Name of the bot author, displayed in /about.
@@ -14,3 +16,5 @@ COPYRIGHT: 'Copyright Skekdog © 2024'
 # DESCRIPTION: Description of the bot, displayed in /about.
 # SOURCE_CODE: A link to the source code.
 # COPYRIGHT  : The copyright notice.
+
+# WEBSOCKET_RECONNECT_INTERVAL: Time in seconds before attempting to reconnect to the announcement WebSocket.
