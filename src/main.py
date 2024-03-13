@@ -6,6 +6,7 @@ from asyncio.subprocess import PIPE
 from logging import FileHandler, StreamHandler, getLogger
 from socket import gaierror
 from sys import exc_info
+from time import perf_counter_ns, time_ns
 from typing import Any, Literal, Optional
 
 from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
@@ -262,6 +263,14 @@ async def set_bot_announcements(ctx: Interaction):
     if res:
         return await ctx.response.send_message("An error occurred.", ephemeral=True)
     return await ctx.response.send_message(f"Successfully set up this channel to receive {BOT_NAME} announcements!")
+
+@command(description="Pong!")
+@cooldown(2, 1)
+async def ping(ctx: Interaction):
+    curTime = time_ns() / 1_000_000_000
+    msgTime = ctx.created_at.timestamp()
+    timeDiff = curTime - msgTime
+    await ctx.response.send_message(embed=SuccessEmbed("🏓 Pong!").add_field(name="API", value=f"{client.ws.latency*1000:.0f}ms").add_field(name="Latency", value=f"{timeDiff*1000:.0f}ms"))
 
 @command(description="Great for making a bet and immediately regretting it.")
 @cooldown(2, 1)
