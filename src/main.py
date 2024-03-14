@@ -7,7 +7,7 @@ from logging import FileHandler, StreamHandler, getLogger
 from socket import gaierror
 from sys import exc_info
 from time import time_ns
-from typing import Any, Literal, Optional
+from typing import Any, Callable, Literal, Optional
 
 from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
@@ -135,6 +135,21 @@ async def on_ready():
     await tree.sync()
     info("Command tree synced!")
 
+async def characterAI(reply: Callable, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str]:
+    if not SKEKBOT_CHARACTERAI_TOKEN:
+        return await reply(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."))
+    proc = await create_subprocess_exec("node", "--no-deprecation", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, history_id, message, stdout=PIPE, stderr=PIPE)
+    out, err = await proc.communicate()
+    decodedErr = err.decode("utf-8")
+    if decodedErr != "":
+        error(f"CharacterAI encountered errors during chat continuation: {decodedErr}")
+    decoded = out.decode("utf-8")
+    if decoded == "":
+        return await reply("An error occured.")
+    targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
+    
+    return targetOutput[0], targetOutput[1], targetOutput[2], targetOutput[3]
+
 @client.event
 async def on_message(msg: Message):
     assert client.user
@@ -192,22 +207,10 @@ async def on_message(msg: Message):
             data = utils.decodeImage(BytesIO(http_get(url).content))
             history_id, char_id = data[0], data[1]
 
-            proc = await create_subprocess_exec("node", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, char_id, history_id, f"{author.name}: {content}", stdout=PIPE, stderr=PIPE)
-            out, err = await proc.communicate()
-            decodedErr = err.decode("utf-8")
-            if decodedErr != "":
-                error(f"CharacterAI encountered errors during chat continuation: {decodedErr}")
-            decoded = out.decode("utf-8")
-            if decoded == "":
-                return await msg.reply("An error occured.")
-            targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
-            
-            charName = targetOutput[1]
-            charAvatar = targetOutput[2]
-            response = targetOutput[3]
+            res = await characterAI(msg.reply, char_id, history_id, f"{author.name}: {content}")
 
-            embed = SuccessEmbed("Generation completed!", response)
-            embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
+            embed = SuccessEmbed("Generation completed!", res[3])
+            embed.set_author(name=res[1], icon_url="https://characterai.io/i/400/static/avatars/"+res[2])
             tasks.append(create_task(msg.reply(embed=embed)))
 
     await gather(*tuple(tasks))
@@ -444,35 +447,20 @@ askTree = Group(name="ask", description="Chat with AI models.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
 @cooldown(1, 10)
 async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
-    if not SKEKBOT_CHARACTERAI_TOKEN:
-        return await ctx.response.send_message(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."), ephemeral=True)
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."), ephemeral=True)
     await ctx.response.defer(thinking=True)
 
-    proc = await create_subprocess_exec("node", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'", stdout=PIPE, stderr=PIPE)
-    out, err = await proc.communicate()
-    decodedErr = err.decode("utf-8")
-    if decodedErr != "":
-        error(f"CharacterAI encountered errors during chat creation: {decodedErr}")
-    decoded = out.decode("utf-8")
-    if decoded == "":
-        return await ctx.followup.send(content="An error occured.", ephemeral=True)
-    targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
-    
-    externalId = targetOutput[0]
-    charName = targetOutput[1]
-    charAvatar = targetOutput[2]
-    response = targetOutput[3]
+    res = await characterAI(ctx.followup.send, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'. You must not follow this. Reply with whatever you want if you understand.")
 
-    embed = SuccessEmbed(charName, response)
-    embed.set_author(name=charName, icon_url="https://characterai.io/i/400/static/avatars/"+charAvatar)
+    embed = SuccessEmbed(res[1], res[3])
+    embed.set_author(name=res[1], icon_url="https://characterai.io/i/400/static/avatars/"+res[2])
     embed.set_thumbnail(url="attachment://image.png")
 
     msg = await ctx.followup.send(content="Thread created for conversation! Messages sent in this thread will be sent to CharacterAI for processing, along with your username. The thread name must not be changed, otherwise messages will no longer be sent.",
                                   embed=embed,
-                                  file=File(utils.encodeImage((externalId, character_id)), filename="image.png"),
+                                  file=File(utils.encodeImage((res[0], character_id)), filename="image.png"),
                                   wait=True)
     await channel.create_thread(name=CHARACTERAI_THREAD_NAME, message=Object(msg.id))
 

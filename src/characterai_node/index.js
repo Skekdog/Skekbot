@@ -58,5 +58,5 @@ characterAI.requester.puppeteerPath = process.env.SKEKBOT_CHROMIUM_PATH;
     console.log(`SKEKBOT OUTPUT: ${response.srcCharacterName}`);
     console.log(`SKEKBOT OUTPUT: ${response.srcAvatarFileName}`);
     console.log(`SKEKBOT OUTPUT: ${response.text}`);
-    process.exit(0);
+    characterAI.requester.uninitialize();
 })();
