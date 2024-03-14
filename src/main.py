@@ -6,7 +6,7 @@ from asyncio.subprocess import PIPE
 from logging import FileHandler, StreamHandler, getLogger
 from socket import gaierror
 from sys import exc_info
-from time import perf_counter_ns, time_ns
+from time import time_ns
 from typing import Any, Literal, Optional
 
 from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
@@ -193,7 +193,10 @@ async def on_message(msg: Message):
             history_id, char_id = data[0], data[1]
 
             proc = await create_subprocess_exec("node", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, char_id, history_id, f"{author.name}: {content}", stdout=PIPE, stderr=PIPE)
-            out, _ = await proc.communicate()
+            out, err = await proc.communicate()
+            decodedErr = err.decode("utf-8")
+            if decodedErr != "":
+                error(f"CharacterAI encountered errors during chat continuation: {decodedErr}")
             decoded = out.decode("utf-8")
             if decoded == "":
                 return await msg.reply("An error occured.")
@@ -449,7 +452,10 @@ async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN,
     await ctx.response.defer(thinking=True)
 
     proc = await create_subprocess_exec("node", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'", stdout=PIPE, stderr=PIPE)
-    out, _ = await proc.communicate()
+    out, err = await proc.communicate()
+    decodedErr = err.decode("utf-8")
+    if decodedErr != "":
+        error(f"CharacterAI encountered errors during chat creation: {decodedErr}")
     decoded = out.decode("utf-8")
     if decoded == "":
         return await ctx.followup.send(content="An error occured.", ephemeral=True)
