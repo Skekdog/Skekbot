@@ -72,6 +72,7 @@ OWNER_NAME = decode_escape(config["OWNER_NAME"])
 
 BOT_NAME = decode_escape(config["NAME"])
 ABOUT_DESCRIPTION = decode_escape(config["DESCRIPTION"])
+PRIVACY_POLICY = decode_escape(config["PRIVACY_POLICY"])
 SOURCE_CODE = decode_escape(config["SOURCE_CODE"])
 ABOUT_COPYRIGHT = decode_escape(config["COPYRIGHT"])
 
@@ -270,6 +271,7 @@ async def about(ctx: Interaction):
     embed = SuccessEmbed(f"About {BOT_NAME}", ABOUT_DESCRIPTION)
     embed.add_field(name=ABOUT_COPYRIGHT, value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
     embed.add_field(name="Source Code", value=SOURCE_CODE)
+    embed.add_field(name="Privacy", value=PRIVACY_POLICY)
     await ctx.response.send_message(embed=embed)
 
 @command(description=f"Sets or unsets this channel to receive {BOT_NAME} announcements.")

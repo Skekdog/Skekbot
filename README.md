@@ -1,6 +1,7 @@
 # Skekbot
 
 [License](https://github.com/Skekdog/Skekbot/blob/master/LICENSE)
+[Privacy](https://github.com/Skekdog/Skekbot/blob/master/PRIVACY.md)
 
 A Discord bot, written in Python using Discord.py.
 Use /help for a list of commands.
@@ -21,12 +22,6 @@ Additional configuration options are available in config.yaml.
 - Navigate to src/characterai_node
 - Run `npm i` (NPM must be installed and set up!)
 - Start the bot by running main.py!
-
-### Privacy
-- Usage of [OpenAI](https://openai.com/) and [DeepL](https://deepl.com) commands (translation and transcription) is temporarily recorded to keep track of expenses incurred and usage limits, associated by Discord user ID
-- Messages sent in CharacterAI threads are sent to [Character.AI](https://beta.character.ai/) with the user's username attached
-- Audio files used in transcription are sent to [OpenAI](https://openai.com/) anonymously
-- Messages used in translation are sent to [DeepL](https://deepl.com) anonymously
 
 ### Credits
 Skekbot uses [node_characterai](https://github.com/realcoloride/node_characterai) for CharacterAI interaction, licensed under MIT.
