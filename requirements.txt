@@ -5,3 +5,4 @@ pyyaml>=6.0.1
 pillow>=10.1.0
 openai>=1.6.0
 pydub>=0.25.1
+deepl>=1.17.0

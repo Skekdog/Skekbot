@@ -22,11 +22,11 @@ Additional configuration options are available in config.yaml.
 - Run `npm i` (NPM must be installed and set up!)
 - Start the bot by running main.py!
 
-### Why not more AI tools?
-- Skekbot previously had commands for ChatGPT and DALL-E generation. These have since been removed; ChatGPT is available for free and DALL-E was (in the model used) rather costly for pretty lackluster results.
-- CharacterAI provides AI that is fun and friendly, not trying to be informative or accurate, thus it feels reasonable to include.
-- I also see some issue with image generation not being used in a gimmicky-fun sort of way, and as I just said they were not good in a gimmicky-fun way either.
-- Transcription, on the other hand, is an actually useful feature to be integrated into Discord (given the newly-arrived voice messages), and it has good results with good prices.
+### Privacy
+- Usage of [OpenAI](https://openai.com/) and [DeepL](https://deepl.com) commands (translation and transcription) is temporarily recorded to keep track of expenses incurred and usage limits, associated by Discord user ID
+- Messages sent in CharacterAI threads are sent to [Character.AI](https://beta.character.ai/) with the user's username attached
+- Audio files used in transcription are sent to [OpenAI](https://openai.com/) anonymously
+- Messages used in translation are sent to [DeepL](https://deepl.com) anonymously
 
 ### Credits
 Skekbot uses [node_characterai](https://github.com/realcoloride/node_characterai) for CharacterAI interaction, licensed under MIT.

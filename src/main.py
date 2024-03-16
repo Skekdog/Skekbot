@@ -27,6 +27,7 @@ from httpx import get as http_get
 from websockets import connect as ws_connect
 from websockets import exceptions as WSExceptions
 
+from deepl import Translator
 from openai import AsyncOpenAI
 from pydub import AudioSegment # pyright: ignore[reportMissingTypeStubs]
 
@@ -42,6 +43,7 @@ info, warn, error = logger.info, logger.warning, logger.error
 
 # Env Vars
 SKEKBOT_MAIN_TOKEN = os.environ.get("SKEKBOT_MAIN_TOKEN")
+SKEKBOT_DEEPL_TOKEN = os.environ.get("SKEKBOT_DEEPL_TOKEN")
 SKEKBOT_OPENAI_TOKEN = os.environ.get("SKEKBOT_OPENAI_TOKEN")
 SKEKBOT_CHARACTERAI_TOKEN = os.environ.get("SKEKBOT_CHARACTERAI_TOKEN")
 SKEKBOT_ANNOUNCEMENT_WEBSOCKET = os.environ.get("SKEKBOT_ANNOUNCEMENT_WEBSOCKET")
@@ -52,6 +54,8 @@ if not SKEKBOT_CHARACTERAI_TOKEN:
     warn("SKEKBOT_CHARACTERAI_TOKEN is unset, CharacterAI commands will not be supported!")
 if not SKEKBOT_OPENAI_TOKEN:
     warn("SKEKBOT_OPENAI_TOKEN is unset, transcription will not be available!")
+if not SKEKBOT_DEEPL_TOKEN:
+    warn("SKEKBOT_DEEPL_TOKEN is unset, translation will not be available!")
 if not SKEKBOT_MAIN_TOKEN:
     error("SKEKBOT_MAIN_TOKEN is unset, the bot cannot start!")
     exit(1)
@@ -94,11 +98,16 @@ intents.guilds = True          # The docs said it's a good idea to keep this ena
 VoiceClient.warn_nacl = False # Disables warning about PyNaCl, because we don't need voice
 client = Client(intents=intents, chunk_guilds_on_startup=False)
 tree = CommandTree(client)
+context_menu = tree.context_menu
 command = tree.command
 
 openAiClient = None
 if SKEKBOT_OPENAI_TOKEN:
     openAiClient = AsyncOpenAI(api_key=SKEKBOT_OPENAI_TOKEN)
+
+deeplClient = None
+if SKEKBOT_DEEPL_TOKEN:
+    deeplClient = Translator(SKEKBOT_DEEPL_TOKEN)
 
 class SuccessEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
@@ -108,6 +117,9 @@ class FailEmbed(Embed):
     def __init__(self, title: str | None = None, description: str | None = None, type: EmbedType = "rich", url: str | None = None, timestamp: datetime | None = None):
         super().__init__(colour=Colour.red(), title=title, type=type, url=url, description=description, timestamp=timestamp)
 
+def testExpired(ctx: Interaction):
+    return ctx.is_expired()
+
 @client.event
 async def on_error(event: str, *_):
     err = exc_info()[1]
@@ -116,6 +128,8 @@ async def on_error(event: str, *_):
 
 @tree.error
 async def on_app_command_error(ctx: Interaction, err: AppCommandError):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution.")
     if isinstance(err, CommandInvokeError):
         # These are often caused by a user doing something poor, such as deleting the bot's message
         return warn(f'Command {err.command.name!r} raised an exception: {err.__class__.__name__}: {err}')
@@ -219,6 +233,8 @@ async def on_message(msg: Message):
 @describe(command="the python code to execute. See main.py for available globals.")
 @check(lambda ctx: ctx.user.id == OWNER_ID)
 async def execute(ctx: Interaction, command: str):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     if ctx.user.id == OWNER_ID:
         info(f"Attempting to execute command: {command}")
         await ctx.response.defer(thinking=True)
@@ -249,6 +265,8 @@ async def main_exec(_locals):
 @command(description="General information about the bot.")
 @cooldown(1, 30, key=lambda ctx: (ctx.guild_id, ctx.user.id))
 async def about(ctx: Interaction):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     embed = SuccessEmbed(f"About {BOT_NAME}", ABOUT_DESCRIPTION)
     embed.add_field(name=ABOUT_COPYRIGHT, value="Licensed under [MPL v2.0](https://github.com/Skekdog/Skekbot/blob/main/LICENSE)")
     embed.add_field(name="Source Code", value=SOURCE_CODE)
@@ -258,6 +276,8 @@ async def about(ctx: Interaction):
 @cooldown(1, 5, key=lambda ctx: (ctx.guild_id))
 @check(lambda ctx: ctx.user.resolved_permissions.manage_channels) # type: ignore
 async def set_bot_announcements(ctx: Interaction):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     assert ctx.channel_id
     res = utils.get("announcementchannels", ctx.channel_id, (False, ))
     if isinstance(res, utils.Error):
@@ -273,14 +293,52 @@ async def set_bot_announcements(ctx: Interaction):
 @command(description="Pong!")
 @cooldown(2, 1)
 async def ping(ctx: Interaction):
+    if testExpired(ctx):
+        return info(f"Command '{getattr(ctx.command, "name", "unknown")}' expired during execution, ignoring.")
     curTime = time_ns() / 1_000_000_000
     msgTime = ctx.created_at.timestamp()
     timeDiff = curTime - msgTime
     await ctx.response.send_message(embed=SuccessEmbed("🏓 Pong!").add_field(name="API", value=f"{client.ws.latency*1000:.0f}ms").add_field(name="Latency", value=f"{timeDiff*1000:.0f}ms"))
 
+@context_menu(name="$$ Translate")
+@cooldown(1, 1)
+async def translate_msg(ctx: Interaction, msg: Message):
+    if not deeplClient:
+        return await ctx.response.send_message(embed=FailEmbed("Translation failed", "DeepL is not available, please contact the bot owner for more info."))
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
+    create_task(ctx.response.defer(thinking=True))
+
+    content = msg.content
+    if content == "":
+        try:
+            assert msg.embeds[0].description
+            content = msg.embeds[0].description
+        except: # Don't feel like catching the specific exceptions, too bad
+            return await ctx.followup.send(embed=FailEmbed("Translation failed", "The message does not appear to have any translatable text."))
+    uId = ctx.user.id
+    hasEnough, alreadyUsed, available, approxCost = utils.hasEnoughCredits(uId, "translation", len(content))
+    if not hasEnough:
+        embed = FailEmbed("Translation failed", "You do not have enough credits.")
+        embed.add_field(name="You have not been charged.", value="")
+        embed.add_field(name=f"You need ${approxCost:.3f} to run this command.", value=f"You have ${(available):.3f} available.")
+        return await ctx.followup.send(embed=embed)
+
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
+
+    cost = utils.chargeUser(uId, "translation", len(content), alreadyUsed)
+
+    result = deeplClient.translate_text(content, target_lang="EN-GB")
+    embed = SuccessEmbed("Translation completed", f"`Detected Language: {result.detected_source_lang}`\n\n{result.text}") # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+    embed.add_field(name=f"This translation cost ${cost:.3f}", value=f"You have ${(available-cost):.3f} available.")
+    await ctx.followup.send(embed=embed) 
+
 @command(description="Great for making a bet and immediately regretting it.")
 @cooldown(2, 1)
 async def coin_flip(ctx: Interaction):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     await ctx.response.send_message(utils.spoiler_pad(("Heads!" if randint(0, 1)==1 else "Tails!"), 6)) # 6 is the length of both results, future me!
 
 class RPSButton(Button["RPSButton"]):
@@ -354,6 +412,8 @@ class RPSView(View):
 @command(description="The game of tactic and skill. But mostly rocks, papers, and scissors.")
 @describe(versus="who to play against. Leaving this blank will default to the bot.")
 async def rock_paper_scissors(ctx: Interaction, versus: Optional[Member]):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     if not versus:
         assert client.user
         return await ctx.response.send_message(f"{client.user.mention}, {ctx.user.mention} challenges you to a game of Rock, Paper, Scissors!", view=RPSView(ctx.user.id, client.user.id))
@@ -365,6 +425,8 @@ async def rock_paper_scissors(ctx: Interaction, versus: Optional[Member]):
 @command(description="See general info on the credits system, and how many credits you have.")
 @cooldown(1, 5)
 async def credits(ctx: Interaction):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     uid = ctx.user.id
     embed = SuccessEmbed("Credits", f"You have ${utils.getAvailableCredits(uid):.3f} out of ${utils.getMaxCredits(uid):.3f} max.\nEach day this is replenished to ${utils.OPENAI_BUDGET:.3f}.")
     await ctx.response.send_message(embed=embed)
@@ -374,7 +436,11 @@ async def credits(ctx: Interaction):
           language="the language to translate from."
 )
 @cooldown(1, 5)
-async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str) -> Any:
+async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_LINK_LEN, MAX_DISCORD_MSG_LINK_LEN], language: str | None = "en") -> Any:
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
+    if not language:
+        language = "en"
     if not openAiClient:
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "OpenAI is not available, please contact the bot owner for more info."), ephemeral=True)
     create_task(ctx.response.defer(thinking=True))
@@ -382,11 +448,13 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     embed = SuccessEmbed("Generating transcription... This may take a while.")
     msgTask = create_task(ctx.followup.send(embed=embed, wait=True))
 
-    async def fail(reason: str):
+    async def fail(reason: str, neededCredits: float | None = None, availableCredits: float | None = None):
         embed.title = "Transcription failed"
         embed.description = reason
         embed.colour = Colour.red()
-        embed.add_field(name="This generation did not cost anything.", value = "")
+        embed.add_field(name="This generation did not cost anything.", value=f"")
+        if neededCredits and availableCredits:
+            embed.add_field(name=f"You need ${neededCredits:.3f} to run this command.", value=f"You have ${(availableCredits):.3f} available.")
         await msgTask
         await msgTask.result().edit(embed=embed)
 
@@ -415,9 +483,9 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
     data.name = "audio.ogg"
 
     duration = round(len(AudioSegment.from_file(data)) / 1000) # type: ignore
-    hasEnoughCredits, currentSpend, available = utils.hasEnoughCredits(ctx.user.id, "audio", duration)
+    hasEnoughCredits, currentSpend, available, neededCredits = utils.hasEnoughCredits(ctx.user.id, "audio", duration)
     if not hasEnoughCredits:
-        return await fail("You do not have enough credits.")
+        return await fail("You do not have enough credits.", neededCredits, available)
 
     cost = utils.chargeUser(ctx.user.id, "audio", duration, currentSpend)
 
@@ -447,6 +515,8 @@ askTree = Group(name="ask", description="Chat with AI models.")
 @describe(character_id="can be found in the url: character.ai/chat?char=[ID IS HERE]?source=...")
 @cooldown(1, 10)
 async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN, CAI_ID_LEN]):
+    if testExpired(ctx):
+        return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
     channel = ctx.channel
     if not channel or (channel.type != ChannelType.text):
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."), ephemeral=True)
@@ -473,10 +543,12 @@ async def main():
     if not SKEKBOT_ANNOUNCEMENT_WEBSOCKET:
         return await gather(clientTask)
 
+    retryCount = 0
     while SKEKBOT_ANNOUNCEMENT_WEBSOCKET:
         try:
             async with ws_connect(SKEKBOT_ANNOUNCEMENT_WEBSOCKET) as ws:
                 info("Connected to WebSocket!")
+                retryCount = 0
                 while True:
                     response = await ws.recv()
                     info(f"Received announcement: {response}")
@@ -495,10 +567,18 @@ async def main():
                         except Forbidden:
                             pass
         except (WSExceptions.ConnectionClosed, TimeoutError, ConnectionRefusedError):
-            info(f"Announcement WebSocket closed, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds...")
+            retryCount += 1
+            if retryCount == 2:
+                info(f"Announcement WebSocket closed, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds... Further attempts will be silent.")
+            elif retryCount < 2:
+                info(f"Announcement WebSocket closed, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds...")
             await sleep(WEBSOCKET_RECONNECT_INTERVAL)
         except gaierror:
-            info(f"Lost connection to WebSocket, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds...")
+            retryCount += 1
+            if retryCount == 2:
+                info(f"Lost connection to WebSocket, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds... Further attempts will be silent.")
+            elif retryCount < 2:
+                info(f"Lost connection to WebSocket, attempting reconnection in {WEBSOCKET_RECONNECT_INTERVAL} seconds...")
             await sleep(WEBSOCKET_RECONNECT_INTERVAL)
 
 if __name__ == "__main__":
