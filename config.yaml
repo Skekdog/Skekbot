@@ -15,6 +15,7 @@ WEBSOCKET_RECONNECT_INTERVAL: 5
 
 # NAME       : Name of the bot itself, displayed in various locations.
 # DESCRIPTION: Description of the bot, displayed in /about.
+# PRIVACY_POLICY: A link to the privacy policy.
 # SOURCE_CODE: A link to the source code.
 # COPYRIGHT  : The copyright notice.
 
