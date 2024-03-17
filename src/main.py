@@ -150,7 +150,7 @@ async def on_ready():
     await tree.sync()
     info("Command tree synced!")
 
-async def characterAI(reply: Any, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str] | Any:
+async def characterAI(reply: Any, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str]:
     if not SKEKBOT_CHARACTERAI_TOKEN:
         return await reply(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."))
     proc = await create_subprocess_exec("node", "--no-deprecation", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, history_id, message, stdout=PIPE, stderr=PIPE)
