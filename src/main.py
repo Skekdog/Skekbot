@@ -7,7 +7,7 @@ from logging import FileHandler, StreamHandler, getLogger
 from socket import gaierror
 from sys import exc_info
 from time import time_ns
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Literal, Optional
 
 from discord import ButtonStyle, ChannelType, Client, Embed, File, Forbidden, HTTPException, Intents, Interaction, Member, Message, Object, TextChannel, Thread, VoiceClient
 from discord.app_commands import CommandTree, Group, Range, describe, check
@@ -150,7 +150,7 @@ async def on_ready():
     await tree.sync()
     info("Command tree synced!")
 
-async def characterAI(reply: Callable, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str]:
+async def characterAI(reply: Any, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str] | Any:
     if not SKEKBOT_CHARACTERAI_TOKEN:
         return await reply(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."))
     proc = await create_subprocess_exec("node", "--no-deprecation", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, history_id, message, stdout=PIPE, stderr=PIPE)
