@@ -7,7 +7,8 @@ from PIL import Image
 from database import get, update, delete, Error # pyright: ignore[reportUnusedImport]
 
 OPENAI_BUDGET = 0.005
-PRICING_AUDIO = (0.006 / 60) # $0.006 per minute
+PRICING_AUDIO = (0.006 / 60) # $0.006 per minute, but we use seconds
+PRICING_TRANSLATION = 0.00000125 # Per character, allows 4000 characters to be translated per day
 
 def getAvailableCredits(id: int) -> float:
     result = get("userdata", id, (0, 0), "openaicredituse, openaibonuscredits")
@@ -22,20 +23,26 @@ def getMaxCredits(id: int) -> float:
 
     return OPENAI_BUDGET + result[0]
 
-def hasEnoughCredits(id: int, intentType: Literal["audio"], intentInput: int) -> tuple[bool, float, float]:
-    "Returns a tuple of True if enough credits to do the specified operation, the amount of credits that have already been used, and the available credits."
+def hasEnoughCredits(id: int, intentType: Literal["audio", "translation"], intentInput: int) -> tuple[bool, float, float, float]:
+    "Returns a tuple of True if enough credits to do the specified operation, the amount of credits that have already been used, the available credits, and the needed credits."
     result = get("userdata", id, (0, 0), "openaicredituse, openaibonuscredits")
-    if isinstance(result, Error): return False, 0, 0
+    if isinstance(result, Error): return False, 0, 0, 0
     usage, bonus = result
 
-    if intentType == "audio": approxCost = (intentInput * PRICING_AUDIO)
+    if intentType == "audio":
+        approxCost = (intentInput * PRICING_AUDIO)
+    elif intentType == "translation":
+        approxCost = (intentInput * PRICING_TRANSLATION)
 
     available = ((OPENAI_BUDGET + bonus) - usage)
-    return (available - approxCost) > 0, usage, available
+    return (available - approxCost) > 0, usage, available, approxCost
 
-def chargeUser(id: int, intentType: Literal["audio"], intentInput: int, currentSpend: float | None = None) -> float:
+def chargeUser(id: int, intentType: Literal["audio", "translation"], intentInput: int, currentSpend: float | None = None) -> float:
     charge = 0
-    if intentType == "audio": charge = intentInput * PRICING_AUDIO
+    if intentType == "audio":
+        charge = intentInput * PRICING_AUDIO
+    elif intentType == "translation":
+        charge = intentInput * PRICING_TRANSLATION
 
     if not currentSpend:
         _currentSpend = get("userdata", id, (0,), "openaicredituse")
