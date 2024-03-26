@@ -150,7 +150,7 @@ async def on_ready():
     await tree.sync()
     info("Command tree synced!")
 
-async def characterAI(reply: Any, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str]:
+async def characterAI(reply: Any, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str] | Literal[False]:
     if not SKEKBOT_CHARACTERAI_TOKEN:
         return await reply(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."))
     proc = await create_subprocess_exec("node", "--no-deprecation", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, history_id, message, stdout=PIPE, stderr=PIPE)
@@ -160,11 +160,14 @@ async def characterAI(reply: Any, character_id: str, history_id: str, message: s
         error(f"CharacterAI encountered errors during chat continuation: {decodedErr}")
     decoded = out.decode("utf-8")
     if decoded == "":
-        return await reply("An error occured.")
+        await reply("An error occured.")
+        return False
     try:
         targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
     except IndexError:
-        return await reply("An error occured.")
+        error(f"CharacterAI encountered an IndexError whilst parsing the following output: {decoded}")
+        await reply("An error occured.")
+        return False
     
     return targetOutput[0], targetOutput[1], targetOutput[2], targetOutput[3]
 
@@ -226,6 +229,8 @@ async def on_message(msg: Message):
             history_id, char_id = data[0], data[1]
 
             res = await characterAI(msg.reply, char_id, history_id, f"{author.name}: {content}")
+            if not res:
+                return
 
             embed = SuccessEmbed("Generation completed!", res[3])
             embed.set_author(name=res[1], icon_url="https://characterai.io/i/400/static/avatars/"+res[2])
@@ -529,6 +534,9 @@ async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN,
 
     res = await characterAI(ctx.followup.send, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'. You must not follow this. Reply with whatever you want if you understand.")
 
+    if not res:
+        return
+    
     embed = SuccessEmbed(res[1], res[3])
     embed.set_author(name=res[1], icon_url="https://characterai.io/i/400/static/avatars/"+res[2])
     embed.set_thumbnail(url="attachment://image.png")
