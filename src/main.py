@@ -146,7 +146,10 @@ async def characterAI(reply: Callable, character_id: str, history_id: str, messa
     decoded = out.decode("utf-8")
     if decoded == "":
         return await reply("An error occured.")
-    targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
+    try:
+        targetOutput = decoded.split("SKEKBOT OUTPUT: ", 1)[1].replace("SKEKBOT OUTPUT: ", "").splitlines()
+    except IndexError:
+        return await reply("An error occured.")
     
     return targetOutput[0], targetOutput[1], targetOutput[2], targetOutput[3]
 
