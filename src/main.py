@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from asyncio import create_subprocess_exec, create_task, gather, run, sleep
 from asyncio.subprocess import PIPE
-from logging import FileHandler, StreamHandler, getLogger
+from logging import FileHandler, StreamHandler, getLogger, Filter, LogRecord
 from socket import gaierror
 from sys import exc_info
 from time import time_ns
@@ -40,6 +40,16 @@ setup_logging(handler=FileHandler("logfile.pylog"))
 setup_logging(handler=StreamHandler())
 logger = getLogger("skekbot")
 info, warn, error = logger.info, logger.warning, logger.error
+
+class ReducedConnectionErrorFilter(Filter):
+    def filter(self, record: LogRecord):
+        if record.msg == "Attempting a reconnect in %.2fs":
+            record.msg = "Connection to Discord lost, attempting a reconnect in %.2fs"
+            record.exc_info = None
+        return True
+
+discordLogger = getLogger("discord.client")
+discordLogger.addFilter(ReducedConnectionErrorFilter())
 
 # Env Vars
 SKEKBOT_MAIN_TOKEN = os.environ.get("SKEKBOT_MAIN_TOKEN")
