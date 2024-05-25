@@ -294,7 +294,7 @@ async def about(ctx: Interaction):
 
 @command(description=f"Sets or unsets this channel to receive {BOT_NAME} announcements.")
 @cooldown(1, 5, key=lambda ctx: (ctx.guild_id))
-@check(lambda ctx: ctx.user.resolved_permissions.manage_channels) # type: ignore
+@check(lambda ctx: ctx.user.resolved_permissions.manage_channels) # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportUnknownLambdaType, reportAttributeAccessIssue]
 async def set_bot_announcements(ctx: Interaction):
     if testExpired(ctx):
         return warn(f"Command {getattr(ctx.command, "name", "unknown")} expired during execution, ignoring.")
@@ -502,7 +502,7 @@ async def transcribe(ctx: Interaction, message_link: Range[str, MIN_DISCORD_MSG_
 
     data.name = "audio.ogg"
 
-    duration = round(len(AudioSegment.from_file(data)) / 1000) # type: ignore
+    duration = round(len(AudioSegment.from_file(data)) / 1000) # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
     hasEnoughCredits, currentSpend, available, neededCredits = utils.hasEnoughCredits(ctx.user.id, "audio", duration)
     if not hasEnoughCredits:
         return await fail("You do not have enough credits.", neededCredits, available)
