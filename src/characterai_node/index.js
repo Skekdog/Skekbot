@@ -1,6 +1,5 @@
 const CharacterAI = require("node_characterai")
 const Chat = require("node_characterai/chat")
-const Parser = require("node_characterai/parser")
 const characterAI = new CharacterAI();
 
 characterAI.requester.puppeteerPath = process.env.SKEKBOT_CHROMIUM_PATH;
@@ -38,7 +37,7 @@ characterAI.requester.puppeteerPath = process.env.SKEKBOT_CHROMIUM_PATH;
     var chat;
     if (historyId === null) {
         request = await characterAI.requester.request("https://beta.character.ai/chat/history/create/", {
-            body: Parser.stringify({
+            body: JSON.stringify({
                 character_external_id: characterId,
                 history_external_id: null,
             }),
@@ -46,7 +45,8 @@ characterAI.requester.puppeteerPath = process.env.SKEKBOT_CHROMIUM_PATH;
             headers: characterAI.getHeaders()
         });
         if (request.status() === 200) {
-            chat = new Chat(characterAI, characterId, await Parser.parseJSON(request));
+            const json = JSON.parse(await request);
+            chat = new Chat(characterAI, characterId, json);
         }
         else Error("Could not create a new chat.");
     } else {
