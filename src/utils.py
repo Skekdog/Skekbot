@@ -85,7 +85,7 @@ def decodeImage(data: BytesIO) -> list[str]:
             if ((x % 8) == 0) and (x != 0):
                 section += chr(int(thisByte, 2))
                 thisByte = ""
-            thisByte += str(img.getpixel((x, y)) // 255) # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            thisByte += str(img.getpixel((x, y)) // 255) # pyright: ignore[reportOperatorIssue]
         decodedList.append((section + chr(int(thisByte, 2))).strip(chr(0)))
 
     return decodedList
