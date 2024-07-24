@@ -160,10 +160,18 @@ async def on_ready():
     await tree.sync()
     info("Command tree synced!")
 
-async def characterAI(reply: Any, character_id: str, history_id: str, message: str) -> tuple[str, str, str, str] | Literal[False]:
+async def characterAI(reply: Any, character_id: str, history_id: str, message: Message | str) -> tuple[str, str, str, str] | Literal[False]:
     if not SKEKBOT_CHARACTERAI_TOKEN:
         return await reply(embed=FailEmbed("Command failed", "CharacterAI is not available, please contact the bot owner for more info."))
-    proc = await create_subprocess_exec("node", "--no-deprecation", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, history_id, message, stdout=PIPE, stderr=PIPE)
+    
+    if isinstance(message, str):
+        content = message
+    else:
+        content = f"{message.author.display_name}: {message.content}"
+        for i in message.mentions:
+            content = content.replace(i.mention, i.display_name)
+
+    proc = await create_subprocess_exec("node", "--no-deprecation", "./src/characterai_node", SKEKBOT_CHARACTERAI_TOKEN, character_id, history_id, content, stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     decodedErr = err.decode("utf-8")
     if decodedErr != "":
@@ -243,7 +251,7 @@ async def on_message(msg: Message):
             data = utils.decodeImage(BytesIO(http_get(url).content))
             history_id, char_id = data[0], data[1]
 
-            res = await characterAI(msg.reply, char_id, history_id, f"{author.name}: {content}")
+            res = await characterAI(msg.reply, char_id, history_id, msg)
             if not res:
                 return
 
