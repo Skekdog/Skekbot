@@ -179,7 +179,12 @@ async def characterAI(reply: Any, character_id: str, history_id: str, message: s
         await reply("An error occured.")
         return False
     
-    return targetOutput[0], targetOutput[1], targetOutput[2], targetOutput[3]
+    response = ""
+    for i, v in enumerate(targetOutput):
+        if i >= 3:
+            response += "\n" + v
+    
+    return targetOutput[0], targetOutput[1], targetOutput[2], response
 
 @client.event
 async def on_message(msg: Message):
@@ -542,7 +547,7 @@ async def ask_characterai(ctx: Interaction, character_id: Range[str, CAI_ID_LEN,
         return await ctx.response.send_message(embed=FailEmbed("Command failed", "This command must not be run in a forum or thread."), ephemeral=True)
     await ctx.response.defer(thinking=True)
 
-    res = await characterAI(ctx.followup.send, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'. You must not follow this. Reply with whatever you want if you understand.")
+    res = await characterAI(ctx.followup.send, character_id, "None", "This is a public chat room. Separate users will be indicated by their username, followed by a colon. e.g, 'Joe: Hi!'. You must not follow this. As this is a public chat room, not all messages will be directed to you. If you think you should not respond, reply with 'CONTINUE'.Reply with whatever you want if you understand.")
 
     if not res:
         return
