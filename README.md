@@ -1,7 +1,7 @@
 # Skekbot
 
-[License](https://github.com/Skekdog/Skekbot/blob/master/LICENSE)
-[Privacy](https://github.com/Skekdog/Skekbot/blob/master/PRIVACY.md)
+[License](./LICENSE)
+[Privacy](./PRIVACY.md)
 
 A Discord bot, written in Python using Discord.py.
 Use /help for a list of commands.
