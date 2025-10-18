@@ -1,0 +1,24 @@
+{
+  "name": "skekbot",
+  "version": "0.1.0",
+  "description": "A small discord bot for personal use.",
+  "keywords": [
+    "discord",
+    "discord-bot"
+  ],
+  "homepage": "https://github.com/Skekdog/Skekbot#readme",
+  "bugs": {
+    "url": "https://github.com/Skekdog/Skekbot/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Skekdog/Skekbot.git"
+  },
+  "license": "MIT",
+  "author": "Skekdog",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
