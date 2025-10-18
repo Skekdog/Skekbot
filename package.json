@@ -1,36 +1,36 @@
 {
-  "name": "skekbot",
-  "version": "0.1.0",
-  "description": "A small discord bot for personal use.",
-  "keywords": [
-    "discord",
-    "discord-bot"
-  ],
-  "homepage": "https://github.com/Skekdog/Skekbot#readme",
-  "bugs": {
-    "url": "https://github.com/Skekdog/Skekbot/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Skekdog/Skekbot.git"
-  },
-  "license": "MIT",
-  "author": "Skekdog",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "dependencies": {
-    "discord.js": "^14.23.2"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.38.0",
-    "@types/node": "^24.8.1",
-    "eslint": "^9.38.0",
-    "globals": "^16.4.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.1"
-  }
+	"name": "skekbot",
+	"version": "0.1.0",
+	"description": "A small discord bot for personal use.",
+	"keywords": [
+		"discord",
+		"discord-bot"
+	],
+	"homepage": "https://github.com/Skekdog/Skekbot#readme",
+	"bugs": {
+		"url": "https://github.com/Skekdog/Skekbot/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Skekdog/Skekbot.git"
+	},
+	"license": "MIT",
+	"author": "Skekdog",
+	"type": "module",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"dependencies": {
+		"discord.js": "^14.23.2"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.38.0",
+		"@types/node": "^24.8.1",
+		"eslint": "^9.38.0",
+		"globals": "^16.4.0",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.46.1"
+	}
 }
