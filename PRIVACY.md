@@ -1,4 +1,0 @@
-- Usage of [OpenAI](https://openai.com/) and [DeepL](https://deepl.com) commands (translation and transcription) is temporarily recorded (at minimum until midnight UTC, until the next operation which checks credits) to keep track of expenses incurred and usage limits, associated by Discord user ID
-- Messages sent in CharacterAI threads are sent to [Character.AI](https://character.ai/) with the user's display name attached
-- Audio files used in transcription are sent to [OpenAI](https://openai.com/) anonymously
-- Messages used in translation are sent to [DeepL](https://deepl.com) anonymously
