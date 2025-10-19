@@ -36,6 +36,7 @@ export default defineConfig([
 			"no-unused-expressions": "warn",
 			"yoda": "warn",
 			"no-restricted-syntax": ["error", "SwitchStatement"],
+			"no-constant-condition": "warn",
 
 			"stylistic/indent": ["warn", "tab"],
 			"stylistic/quotes": ["warn", "double", {
@@ -55,6 +56,7 @@ export default defineConfig([
 					"ignoreRestSiblings": true
 				}
 			],
+			"@typescript-eslint/no-explicit-any": ["off"],
 			"no-unused-vars": ["off"],
 		},
 	},
