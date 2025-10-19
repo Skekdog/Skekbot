@@ -11,23 +11,17 @@ const command: CommandInterface = {
 	async execute(interaction: ChatInputCommandInteraction) {
 		if (!isBotClient(interaction.client)) throw new Error("Interaction client is not a BotClient.");
 
-		console.log("a");
-
 		const commandOption = interaction.options.get("command");
 		if (!commandOption) {
 			await interaction.reply("An unknown error occured.");
 			return;
 		}
 
-		console.log("b");
-
 		let commandName = commandOption.value;
 		if (typeof commandName !== "string") {
 			await interaction.reply("An unknown error occured.");
 			return;
 		}
-
-		console.log("c");
 
 		commandName = commandName.toLowerCase();
 
@@ -37,22 +31,16 @@ const command: CommandInterface = {
 			return;
 		}
 
-		console.log("d");
-
 		try {
 			const fileUrl = pathToFileURL(path.join(import.meta.dirname, commandName)).href + ".ts?t=" + Date.now();
 			const newCommand = (await import(fileUrl)).default as CommandInterface;
-			console.log("r5w4r");
 			if (newCommand.data && newCommand.execute as unknown) {
 				interaction.client.commands.set(commandName, newCommand);
 				await interaction.reply(`Command ${commandName} reloaded.`);
-				console.log("e");
 			} else {
 				await interaction.reply(`Command ${commandName} is missing a required "data" or "execute" property.`);
-				console.log("f0");
 			}
 		} catch (_) {
-			console.log(_);
 			await interaction.reply("An unknown error occured.");
 		}
 	},
