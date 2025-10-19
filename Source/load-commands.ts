@@ -3,6 +3,7 @@ import type { BotClient } from "./bot-client.ts";
 import { promises as fsPromises } from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
+import type { CommandInterface } from "./command-interface.ts";
 
 async function respondToChatInteraction(client: BotClient, interaction: ChatInputCommandInteraction) {
 	const command = client.commands.get(interaction.commandName);
@@ -34,8 +35,8 @@ export default async function LoadCommands(client: BotClient) {
 
 	for await (const entry of fsPromises.glob("**/*.ts", { cwd: commandFolderPath })) {
 		const filePath = pathToFileURL(path.join(commandFolderPath, entry)).href;
-		const command = await import(filePath);
-		if (command.data && command.execute) {
+		const command = (await import(filePath)).default as CommandInterface;
+		if (command.data && command.execute as unknown) {
 			client.commands.set(command.data.name, command);
 		} else {
 			throw new TypeError(`The command at ${filePath} is missing a required "data" or "execute" property.`);
