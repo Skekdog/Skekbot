@@ -1,5 +1,10 @@
-import { ChatInputCommandInteraction, Client, Collection, SlashCommandBuilder } from "discord.js";
+import { Client, Collection } from "discord.js";
+import type { CommandInterface } from "./command-interface.ts";
 
 export class BotClient extends Client {
-	commands: Collection<string, { data: SlashCommandBuilder, execute: (interaction: ChatInputCommandInteraction) => Promise<void>}> = new Collection();
+	commands: Collection<string, CommandInterface> = new Collection();
+}
+
+export function isBotClient(client: unknown): client is BotClient {
+	return client instanceof BotClient;
 }
