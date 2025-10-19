@@ -1,5 +1,6 @@
 import { Events, Message } from "discord.js";
 import type { ModuleInterface } from "../module-interface.ts";
+import sanitisePings from "../sanitise-pings.ts";
 
 const IM = ["im", "i'm", "i’m"];
 const MAX_LENGTH = 50;
@@ -33,6 +34,8 @@ async function onMessage(message: Message) {
 	name = name.split(".")[0]?.split(",")[0]?.slice(0, MAX_LENGTH).trim();
 
 	if (!name) return;
+
+	name = sanitisePings(name);
 
 	await message.reply(`Hi ${name}, I'm Skekbot!`);
 }
