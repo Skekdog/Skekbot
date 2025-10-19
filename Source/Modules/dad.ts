@@ -37,7 +37,12 @@ async function onMessage(message: Message) {
 
 	name = sanitisePings(name);
 
-	await message.reply(`Hi ${name}, I'm Skekbot!`);
+	await message.reply({
+		content: `Hi ${name}, I'm Skekbot!`,
+		allowedMentions: {
+			repliedUser: false,
+		},
+	});
 }
 
 const module: ModuleInterface = {
