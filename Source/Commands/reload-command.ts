@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from "discord.js";
 import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
 import { pathToFileURL } from "url";
@@ -13,13 +13,19 @@ const command: CommandInterface = {
 
 		const commandOption = interaction.options.get("command");
 		if (!commandOption) {
-			await interaction.reply("An unknown error occured.");
+			await interaction.reply({
+				content: "An unknown error occured.",
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 
 		let commandName = commandOption.value;
 		if (typeof commandName !== "string") {
-			await interaction.reply("An unknown error occured.");
+			await interaction.reply({
+				content: "An unknown error occured.",
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 
@@ -27,7 +33,10 @@ const command: CommandInterface = {
 
 		const foundCommand = interaction.client.commands.get(commandName);
 		if (!foundCommand) {
-			await interaction.reply(`Command ${commandName} not found.`);
+			await interaction.reply({
+				content: `Command ${commandName} not found.`,
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 
@@ -41,7 +50,10 @@ const command: CommandInterface = {
 				await interaction.reply(`Command ${commandName} is missing a required "data" or "execute" property.`);
 			}
 		} catch (_) {
-			await interaction.reply("An unknown error occured.");
+			await interaction.reply({
+				content: "An unknown error occured.",
+				flags: MessageFlags.Ephemeral,
+			});
 		}
 	},
 };

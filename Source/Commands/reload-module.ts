@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from "discord.js";
 import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
 import { pathToFileURL } from "url";
@@ -14,13 +14,19 @@ const command: CommandInterface = {
 
 		const moduleOption = interaction.options.get("module");
 		if (!moduleOption) {
-			await interaction.reply("An unknown error occured.");
+			await interaction.reply({
+				content: "Missing module argument.",
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 
 		let moduleName = moduleOption.value;
 		if (typeof moduleName !== "string") {
-			await interaction.reply("An unknown error occured.");
+			await interaction.reply({
+				content: "Invalid module argument, expected string, received " + typeof moduleName,
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 
@@ -28,7 +34,10 @@ const command: CommandInterface = {
 
 		const foundModule = interaction.client.modules.get(moduleName);
 		if (!foundModule) {
-			await interaction.reply(`Module ${moduleName} not found.`);
+			await interaction.reply({
+				content: `Module ${moduleName} not found.`,
+				flags: MessageFlags.Ephemeral,
+			});
 			return;
 		}
 
@@ -45,7 +54,10 @@ const command: CommandInterface = {
 				await interaction.reply(`Module ${moduleName} is missing required "load" or "unload" functions.`);
 			}
 		} catch (_) {
-			await interaction.reply("An unknown error occured.");
+			await interaction.reply({
+				content: "An unknown error occured.",
+				flags: MessageFlags.Ephemeral,
+			});
 		}
 	},
 };
