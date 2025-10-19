@@ -1,6 +1,6 @@
 import { Events, Message } from "discord.js";
 import type { ModuleInterface } from "../Types/module-interface.ts";
-import sanitisePings from "../sanitise-pings.ts";
+import sanitisePings from "../Utility/sanitise-pings.ts";
 
 const IM = ["im", "i'm", "i’m"];
 const MAX_LENGTH = 50;
