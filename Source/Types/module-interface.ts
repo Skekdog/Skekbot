@@ -1,4 +1,4 @@
-import type { BotClient } from "./bot-client.ts";
+import type { BotClient } from "../bot-client.ts";
 
 export interface ModuleInterface {
 	load(client: BotClient): Promise<void>,

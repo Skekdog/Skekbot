@@ -31,7 +31,7 @@ async function respondToChatInteraction(client: BotClient, interaction: ChatInpu
 export default async function LoadCommands(client: BotClient) {
 	client.commands = new Collection();
 
-	const commandFolderPath = path.join(import.meta.dirname, "Commands");
+	const commandFolderPath = path.join(import.meta.dirname, "..", "Commands");
 
 	for await (const entry of fsPromises.glob("**/*.ts", { cwd: commandFolderPath })) {
 		const filePath = pathToFileURL(path.join(commandFolderPath, entry)).href;

@@ -4,7 +4,7 @@ import type { CommandInterface } from "../Types/command-interface.ts";
 const command: CommandInterface = {
 	data: new SlashCommandBuilder().setName("ping").setDescription("ping pong!"),
 	async execute(interaction: ChatInputCommandInteraction) {
-		await interaction.reply("Ping!");
+		await interaction.reply("Pong!");
 	},
 };
 

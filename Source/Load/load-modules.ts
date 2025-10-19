@@ -1,14 +1,14 @@
-import type { BotClient } from "./bot-client.ts";
+import type { BotClient } from "../bot-client.ts";
 import { promises as fsPromises } from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
-import type { ModuleInterface } from "./module-interface.ts";
+import type { ModuleInterface } from "../Types/module-interface.ts";
 import { Collection } from "discord.js";
 
 export default async function LoadModules(client: BotClient) {
 	client.modules = new Collection();
 
-	const moduleFolderPath = path.join(import.meta.dirname, "Modules");
+	const moduleFolderPath = path.join(import.meta.dirname, "..", "Modules");
 
 	for await (const entry of fsPromises.glob("**/*.ts", { cwd: moduleFolderPath })) {
 		const filePath = pathToFileURL(path.join(moduleFolderPath, entry)).href;
