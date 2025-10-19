@@ -3,6 +3,7 @@ import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
 import { pathToFileURL } from "url";
 import path from "path";
+import isDeveloper from "../Utility/is-developer.ts";
 
 const command: CommandInterface = {
 	data: new SlashCommandBuilder().setName("reload-command").setDescription("Reloads a command.")
@@ -10,6 +11,14 @@ const command: CommandInterface = {
 
 	async execute(interaction: ChatInputCommandInteraction) {
 		if (!isBotClient(interaction.client)) throw new Error("Interaction client is not a BotClient.");
+
+		if (!isDeveloper(interaction.user.id)) {
+			await interaction.reply({
+				content: "You do not have permission to use this command.",
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
 
 		const commandOption = interaction.options.get("command");
 		if (!commandOption) {
