@@ -1,5 +1,5 @@
 import { Events, Message } from "discord.js";
-import type { ModuleInterface } from "../module-interface.ts";
+import type { ModuleInterface } from "../Types/module-interface.ts";
 import sanitisePings from "../sanitise-pings.ts";
 
 const IM = ["im", "i'm", "i’m"];

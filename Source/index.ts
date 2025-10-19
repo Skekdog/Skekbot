@@ -1,7 +1,7 @@
 import { Events, GatewayIntentBits } from "discord.js";
 import { BotClient } from "./bot-client.ts";
-import LoadCommands from "./load-commands.ts";
-import LoadModules from "./load-modules.ts";
+import LoadCommands from "./Load/load-commands.ts";
+import LoadModules from "./Load/load-modules.ts";
 
 const TOKEN = process.env["BOT_ID"];
 

@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import type { CommandInterface } from "../command-interface.ts";
+import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
 import { pathToFileURL } from "url";
 import path from "path";

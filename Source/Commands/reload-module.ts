@@ -1,9 +1,9 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import type { CommandInterface } from "../command-interface.ts";
+import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
 import { pathToFileURL } from "url";
 import path from "path";
-import type { ModuleInterface } from "../module-interface.ts";
+import type { ModuleInterface } from "../Types/module-interface.ts";
 
 const command: CommandInterface = {
 	data: new SlashCommandBuilder().setName("reload-module").setDescription("Reloads a module.")

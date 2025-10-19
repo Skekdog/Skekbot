@@ -1,9 +1,9 @@
 import { ChatInputCommandInteraction, Collection, Events, MessageFlags, REST, Routes } from "discord.js";
-import type { BotClient } from "./bot-client.ts";
+import type { BotClient } from "../bot-client.ts";
 import { promises as fsPromises } from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
-import type { CommandInterface } from "./command-interface.ts";
+import type { CommandInterface } from "../Types/command-interface.ts";
 
 async function respondToChatInteraction(client: BotClient, interaction: ChatInputCommandInteraction) {
 	const command = client.commands.get(interaction.commandName);
