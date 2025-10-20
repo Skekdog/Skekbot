@@ -1,23 +1,16 @@
 import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from "discord.js";
 import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
-import isDeveloper from "../Utility/is-developer.ts";
 import LoadCommand from "../Load/load-command.ts";
 
 const command: CommandInterface = {
+	isDevServer: true,
+
 	data: new SlashCommandBuilder().setName("reload-command").setDescription("Reloads a command.")
 		.addStringOption(option => option.setName("command").setDescription("The command to reload.").setRequired(true)) as SlashCommandBuilder,
 
 	async execute(interaction: ChatInputCommandInteraction) {
 		if (!isBotClient(interaction.client)) throw new Error("Interaction client is not a BotClient.");
-
-		if (!isDeveloper(interaction.user.id)) {
-			await interaction.reply({
-				content: "You do not have permission to use this command.",
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
 
 		const commandOption = interaction.options.get("command");
 		if (!commandOption) {

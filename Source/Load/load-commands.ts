@@ -50,15 +50,27 @@ export default async function LoadCommands(client: BotClient) {
 	if (!client.application) throw new Error("No application provided");
 
 	try {
-		console.log(`Started refreshing ${client.commands.size} application commands.`);
+		const commands = client.commands.filter(command => !command.isDevServer).map((command) => command.data);
 
-		const commands = client.commands.map((command) => command.data);
+		console.log(`Started refreshing ${commands.length} global application commands.`);
 
 		await rest.put(Routes.applicationCommands(client.application.id), {
 			body: commands,
 		});
 
-		console.log(`Successfully reloaded ${commands.length} application commands.`);
+		console.log(`Successfully reloaded ${commands.length} global application commands.`);
+
+		if (process.env["DEV_SERVER_ID"]) {
+			const devCommands = client.commands.filter(command => command.isDevServer).map((command) => command.data);
+
+			console.log(`Started refreshing ${commands.length} dev server application commands.`);
+
+			await rest.put(Routes.applicationGuildCommands(client.application.id, process.env["DEV_SERVER_ID"]), {
+				body: devCommands,
+			});
+
+			console.log(`Successfully reloaded ${devCommands.length} dev server application commands.`);
+		}
 	} catch (error) {
 		console.error(error);
 	}
