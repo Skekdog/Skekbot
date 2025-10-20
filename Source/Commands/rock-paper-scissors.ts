@@ -91,7 +91,7 @@ const command: CommandInterface = {
 				return;
 			}
 
-			await buttonInteraction.deferReply({ ephemeral: true });
+			await buttonInteraction.deferUpdate();
 		});
 	}
 };
