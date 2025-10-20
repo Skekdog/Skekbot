@@ -88,7 +88,10 @@ const command: CommandInterface = {
 			if (user1Choice && user2Choice) {
 				collector.stop();
 				await announce(buttonInteraction, initiator, against, user1Choice, user2Choice);
+				return;
 			}
+
+			await buttonInteraction.deferReply({ ephemeral: true });
 		});
 	}
 };
