@@ -2,8 +2,7 @@ import { ChatInputCommandInteraction, Collection, Events, MessageFlags, REST, Ro
 import type { BotClient } from "../bot-client.ts";
 import { promises as fsPromises } from "fs";
 import path from "path";
-import { pathToFileURL } from "url";
-import type { CommandInterface } from "../Types/command-interface.ts";
+import LoadCommand from "./load-command.ts";
 
 async function respondToChatInteraction(client: BotClient, interaction: ChatInputCommandInteraction) {
 	const command = client.commands.get(interaction.commandName);
@@ -34,13 +33,7 @@ export default async function LoadCommands(client: BotClient) {
 	const commandFolderPath = path.join(import.meta.dirname, "..", "Commands");
 
 	for await (const entry of fsPromises.glob("**/*.ts", { cwd: commandFolderPath })) {
-		const filePath = pathToFileURL(path.join(commandFolderPath, entry)).href;
-		const command = (await import(filePath)).default as CommandInterface;
-		if (command.data && command.execute as unknown) {
-			client.commands.set(command.data.name, command);
-		} else {
-			throw new TypeError(`The command at ${filePath} is missing a required "data" or "execute" property.`);
-		}
+		await LoadCommand(client, path.basename(entry, ".ts"));
 	}
 
 	client.on(Events.InteractionCreate, async (interaction) => {
@@ -48,6 +41,8 @@ export default async function LoadCommands(client: BotClient) {
 			await respondToChatInteraction(client, interaction);
 		}
 	});
+
+	console.log(client.commands);
 
 	if (!client.token) throw new Error("No token provided");
 	const rest = new REST().setToken(client.token);

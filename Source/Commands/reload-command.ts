@@ -1,9 +1,8 @@
 import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from "discord.js";
 import type { CommandInterface } from "../Types/command-interface.ts";
 import { isBotClient } from "../bot-client.ts";
-import { pathToFileURL } from "url";
-import path from "path";
 import isDeveloper from "../Utility/is-developer.ts";
+import LoadCommand from "../Load/load-command.ts";
 
 const command: CommandInterface = {
 	data: new SlashCommandBuilder().setName("reload-command").setDescription("Reloads a command.")
@@ -50,17 +49,11 @@ const command: CommandInterface = {
 		}
 
 		try {
-			const fileUrl = pathToFileURL(path.join(import.meta.dirname, commandName)).href + ".ts?t=" + Date.now();
-			const newCommand = (await import(fileUrl)).default as CommandInterface;
-			if (newCommand.data && newCommand.execute as unknown) {
-				interaction.client.commands.set(commandName, newCommand);
-				await interaction.reply(`Command ${commandName} reloaded.`);
-			} else {
-				await interaction.reply(`Command ${commandName} is missing a required "data" or "execute" property.`);
-			}
-		} catch (_) {
+			await LoadCommand(interaction.client, commandName);
+			await interaction.reply(`Command ${commandName} reloaded.`);
+		} catch (error) {
 			await interaction.reply({
-				content: "An unknown error occured.",
+				content: `An error occurred: ${error}`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
