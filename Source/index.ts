@@ -14,7 +14,7 @@ const client = new BotClient({
 });
 
 client.once(Events.ClientReady, (readyClient) => {
-	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+	console.log(`Logged in as ${readyClient.user.tag}`);
 	LoadModules(client);
 	LoadCommands(client);
 });
