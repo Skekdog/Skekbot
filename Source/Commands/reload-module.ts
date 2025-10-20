@@ -12,25 +12,7 @@ const command: CommandInterface = {
 	async execute(interaction: ChatInputCommandInteraction) {
 		if (!isBotClient(interaction.client)) throw new Error("Interaction client is not a BotClient.");
 
-		const moduleOption = interaction.options.get("module");
-		if (!moduleOption) {
-			await interaction.reply({
-				content: "Missing module argument.",
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-
-		let moduleName = moduleOption.value;
-		if (typeof moduleName !== "string") {
-			await interaction.reply({
-				content: "Invalid module argument, expected string, received " + typeof moduleName,
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-
-		moduleName = moduleName.toLowerCase();
+		const moduleName = interaction.options.getString("module")?.toLowerCase() ?? "";
 
 		const foundModule = interaction.client.modules.get(moduleName);
 		if (!foundModule) {

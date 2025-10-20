@@ -12,25 +12,7 @@ const command: CommandInterface = {
 	async execute(interaction: ChatInputCommandInteraction) {
 		if (!isBotClient(interaction.client)) throw new Error("Interaction client is not a BotClient.");
 
-		const commandOption = interaction.options.get("command");
-		if (!commandOption) {
-			await interaction.reply({
-				content: "An unknown error occured.",
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-
-		let commandName = commandOption.value;
-		if (typeof commandName !== "string") {
-			await interaction.reply({
-				content: "An unknown error occured.",
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-
-		commandName = commandName.toLowerCase();
+		const commandName = interaction.options.getString("command")?.toLowerCase() ?? "";
 
 		const foundCommand = interaction.client.commands.get(commandName);
 		if (!foundCommand) {
