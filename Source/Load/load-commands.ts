@@ -63,7 +63,7 @@ export default async function LoadCommands(client: BotClient) {
 		if (process.env["DEV_SERVER_ID"]) {
 			const devCommands = client.commands.filter(command => command.isDevServer).map((command) => command.data);
 
-			console.log(`Started refreshing ${commands.length} dev server application commands.`);
+			console.log(`Started refreshing ${devCommands.length} dev server application commands.`);
 
 			await rest.put(Routes.applicationGuildCommands(client.application.id, process.env["DEV_SERVER_ID"]), {
 				body: devCommands,
