@@ -78,7 +78,7 @@ const command: CommandInterface = {
 			if (user === initiator) user1Choice = id;
 			else if (user === against) user2Choice = id;
 
-			if (against.bot || against === user) {
+			if (against.bot || against === initiator) {
 				const botChoice = Object.keys(options)[Math.floor(Math.random() * Object.keys(options).length)];
 				if (typeof botChoice !== "string") throw new Error("Bot choice is not a string.");
 
