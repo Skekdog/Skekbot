@@ -7,7 +7,7 @@ const command: CommandInterface = {
 	isDevServer: true,
 
 	data: new SlashCommandBuilder().setName("reload-module").setDescription("Reloads a module.")
-		.addStringOption(option => option.setName("module").setDescription("The module to reload.").setRequired(true)) as SlashCommandBuilder,
+		.addStringOption(option => option.setName("module").setDescription("The module to reload.").setRequired(true)),
 
 	async execute(interaction: ChatInputCommandInteraction) {
 		if (!isBotClient(interaction.client)) throw new Error("Interaction client is not a BotClient.");
