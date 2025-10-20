@@ -42,8 +42,6 @@ export default async function LoadCommands(client: BotClient) {
 		}
 	});
 
-	console.log(client.commands);
-
 	if (!client.token) throw new Error("No token provided");
 	const rest = new REST().setToken(client.token);
 
@@ -58,7 +56,7 @@ export default async function LoadCommands(client: BotClient) {
 			body: commands,
 		});
 
-		console.log(`Successfully reloaded ${commands.length} global application commands.`);
+		console.log(`Successfully refreshed ${commands.length} global application commands.`);
 
 		if (process.env["DEV_SERVER_ID"]) {
 			const devCommands = client.commands.filter(command => command.isDevServer).map((command) => command.data);
@@ -69,7 +67,7 @@ export default async function LoadCommands(client: BotClient) {
 				body: devCommands,
 			});
 
-			console.log(`Successfully reloaded ${devCommands.length} dev server application commands.`);
+			console.log(`Successfully refreshed ${devCommands.length} dev server application commands.`);
 		}
 	} catch (error) {
 		console.error(error);
