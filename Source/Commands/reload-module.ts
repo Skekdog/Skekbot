@@ -15,15 +15,9 @@ const command: CommandInterface = {
 		const moduleName = interaction.options.getString("module")?.toLowerCase() ?? "";
 
 		const foundModule = interaction.client.modules.get(moduleName);
-		if (!foundModule) {
-			await interaction.reply({
-				content: `Module ${moduleName} not found.`,
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
+		if (foundModule) {
+			foundModule.unload(interaction.client);
 		}
-
-		foundModule.unload(interaction.client);
 
 		try {
 			await LoadModule(interaction.client, moduleName);
