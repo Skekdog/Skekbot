@@ -14,15 +14,6 @@ const command: CommandInterface = {
 
 		const commandName = interaction.options.getString("command")?.toLowerCase() ?? "";
 
-		const foundCommand = interaction.client.commands.get(commandName);
-		if (!foundCommand) {
-			await interaction.reply({
-				content: `Command ${commandName} not found.`,
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-
 		try {
 			await LoadCommand(interaction.client, commandName);
 			await interaction.reply(`Command ${commandName} reloaded.`);
