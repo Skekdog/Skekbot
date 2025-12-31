@@ -17,12 +17,12 @@ const replyInput = /** @type {HTMLInputElement | null} */ (
 	document.getElementById("reply-input")
 );
 
-const webTokenInput = /** @type {HTMLInputElement | null} */ (
-	document.getElementById("web-token")
+const webPasswordInput = /** @type {HTMLInputElement | null} */ (
+	document.getElementById("web-password")
 );
 
 sendButton?.addEventListener("click", async () => {
-	if (!channelInput || !messageArea || !replyInput || !webTokenInput) {
+	if (!channelInput || !messageArea || !replyInput || !webPasswordInput) {
 		console.warn("some input is missing!");
 		return;
 	}
@@ -35,7 +35,7 @@ sendButton?.addEventListener("click", async () => {
 		}),
 		headers: {
 			"Content-Type": "application/json",
-			"Authorization": `Bearer ${webTokenInput.value}`
+			"Authorization": `Bearer ${webPasswordInput.value}`
 		},
 		method: "POST",
 	});

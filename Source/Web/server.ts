@@ -2,14 +2,14 @@ import express from "express";
 import client from "../client.ts";
 import * as z from "zod";
 
-const WEB_TOKEN = process.env["WEB_TOKEN"];
+const WEB_PASSWORD = process.env["WEB_PASSWORD"];
 
 function authenticatedRoute(
 	req: express.Request,
 	res: express.Response,
 	next: express.NextFunction
 ) {
-	if (req.headers.authorization !== `Bearer ${WEB_TOKEN}`) {
+	if (req.headers.authorization !== `Bearer ${WEB_PASSWORD}`) {
 		return res.status(401).send({ message: "invalid key" });
 	}
 
