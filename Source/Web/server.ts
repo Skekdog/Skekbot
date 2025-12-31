@@ -6,10 +6,11 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { bearerAuth } from "hono/bearer-auth";
 import { serve } from "@hono/node-server";
 import { zValidator } from "@hono/zod-validator";
+import { env } from "../Utility/env.ts";
 
-const password = process.env["WEB_PASSWORD"]!;
+const password = env.WEB_PASSWORD!;
 
-const PORT = 443;
+const PORT = env.PORT;
 
 const app = new Hono();
 
