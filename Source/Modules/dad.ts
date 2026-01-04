@@ -3,7 +3,7 @@ import type { ModuleInterface } from "../Types/module-interface.ts";
 import sanitisePings from "../Utility/sanitise-pings.ts";
 
 const IM = ["im", "i'm", "i’m"];
-const MAX_LENGTH = 50;
+const MAX_LENGTH = 75;
 
 async function onMessage(message: Message) {
 	if (message.author.bot) return;
