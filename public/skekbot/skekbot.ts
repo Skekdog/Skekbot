@@ -1,4 +1,4 @@
-import { treaty } from "@elysiajs/eden";
+import { edenFetch } from "@elysiajs/eden";
 import type { App } from "../../Source";
 
 const messageArea = document.getElementById(
@@ -27,7 +27,7 @@ if (
 	throw new Error("required DOM elements are missing");
 }
 
-const app = treaty<App>("/");
+const fetch = edenFetch<App>(location.origin);
 
 sendButton.addEventListener("click", async (event: MouseEvent) => {
 	event.preventDefault();
@@ -41,19 +41,18 @@ sendButton.addEventListener("click", async (event: MouseEvent) => {
 	sendButton.setAttribute("aria-busy", "true");
 
 	try {
-		const res = await app["send-message"].post(
-			{
+		const res = await fetch("/send-message", {
+			method: "POST",
+			body: {
 				channelId: channelInput.value,
 				message: messageArea.value,
 				replyToId: replyInput.value || "",
 			},
-			{
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${passwordInput.value}`,
-				},
-			}
-		);
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${passwordInput.value}`,
+			},
+		});
 
 		if (res.error) {
 			throw new Error(res.error.value);
