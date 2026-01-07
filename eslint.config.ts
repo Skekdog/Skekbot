@@ -63,7 +63,7 @@ export default defineConfig([
 		},
 	},
 	{
-		files: ["Source/Web/Page/**/*.{js,mjs,cjs,ts,mts,cts}"],
+		files: ["public/**/*.{js,mjs,cjs,ts,mts,cts}"],
 		languageOptions: {
 			globals: globals.browser
 		}
