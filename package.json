@@ -19,7 +19,7 @@
 	"type": "module",
 	"main": "Source/index.ts",
 	"scripts": {
-		"start": "bun .",
+		"start": "NODE_ENV=production bun .",
 		"dev": "bun run --watch .",
 		"lint": "eslint --ext .js,.ts ."
 	},
