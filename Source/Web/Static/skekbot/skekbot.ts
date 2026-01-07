@@ -1,5 +1,5 @@
 import { edenFetch } from "@elysiajs/eden";
-import type { App } from "../../Source";
+import type { App } from "../../server.js";
 
 const messageArea = document.getElementById(
 	"message-box"
