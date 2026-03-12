@@ -2,6 +2,7 @@ import { Events, Message } from "discord.js";
 import type { ModuleInterface } from "../Types/module-interface";
 import winkNLP, { type ItemToken, type ItsFunction } from "wink-nlp";
 import model from "wink-eng-lite-web-model";
+import { removeMentions } from "$lib/mentions";
 
 const HIDDEN_USER_ID = "475851244737396740";
 
@@ -99,7 +100,9 @@ async function onMessage(message: Message) {
 
 	if (!content || content.length < 3) return;
 
-	const noun = extractNounsWithCorrectVerb(message.content);
+	const sanitisedContent = removeMentions(content);
+
+	const noun = extractNounsWithCorrectVerb(sanitisedContent);
 
 	if (!noun) return;
 

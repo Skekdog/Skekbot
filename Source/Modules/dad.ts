@@ -1,6 +1,6 @@
 import { Events, Message } from "discord.js";
 import type { ModuleInterface } from "../Types/module-interface.ts";
-import sanitisePings from "../Utility/sanitise-pings.ts";
+import { sanitiseMentions } from "$lib/mentions.ts";
 
 const IM = ["im", "i'm", "i’m"];
 const MAX_LENGTH = 75;
@@ -35,7 +35,7 @@ async function onMessage(message: Message) {
 
 	if (!name) return;
 
-	name = sanitisePings(name);
+	name = sanitiseMentions(name);
 
 	await message.reply({
 		content: `Hi ${name}, I'm Skekbot!`,
