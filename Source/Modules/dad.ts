@@ -31,7 +31,7 @@ async function onMessage(message: Message) {
 	if (!startIndex || startIndex >= content.length) return;
 
 	let name: string | undefined = content.slice(startIndex);
-	name = name.split(".")[0]?.split(",")[0]?.slice(0, MAX_LENGTH).trim();
+	name = name.split(".")[0]?.split(",")[0]?.split("\n")[0]?.slice(0, MAX_LENGTH).trim();
 
 	if (!name) return;
 
